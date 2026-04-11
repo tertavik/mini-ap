@@ -394,7 +394,7 @@
             visibility: visible;
         }
 
-        /* Unexplored badge - fully clickable */
+        /* Unexplored badge */
         .unexplored-badge {
             background: rgba(243, 156, 18, 0.15);
             color: var(--warning);
@@ -407,9 +407,15 @@
             gap: 3px;
             cursor: pointer;
         }
-        .unexplored-badge:active {
-            background: rgba(243, 156, 18, 0.3);
+        .unexplored-badge:active { background: rgba(243, 156, 18, 0.3); }
+
+        /* Info Guide Card Style */
+        .guide-card {
+            background: rgba(108, 92, 231, 0.1);
+            border: 1.5px solid var(--accent-secondary);
         }
+        .guide-card h3 { color: var(--accent-secondary); }
+        .guide-card b { color: var(--text-primary); }
 
         @media (prefers-color-scheme: light) {
             :root { --tg-bg: #ffffff; --tg-text: #000000; --card-bg: #f8f9fa; --border: #e5e7eb; }
@@ -430,6 +436,17 @@
         </div>
 
         <div id="main" class="tab-content active">
+            <!-- NEW INFO GUIDE CARD -->
+            <div class="card guide-card">
+                <h3>ℹ️ Информация 📊</h3>
+                <p>Чем меньше значение в характеристиках — тем лучше.</p>
+                <div style="margin-top: 8px; font-size: 0.85rem;">
+                    <div style="margin-bottom: 4px;">🚪 Залаз — <span style="color:var(--danger)">10/10 сложно</span>, <span style="color:var(--success)">1/10 легко</span></div>
+                    <div style="margin-bottom: 4px;">👮 Охрана — <span style="color:var(--danger)">10/10 много</span>, <span style="color:var(--success)">1/10 мало</span></div>
+                    <div>🏚️ Сохран — <span style="color:var(--danger)">10/10 плохой</span>, <span style="color:var(--success)">1/10 идеальный</span></div>
+                </div>
+            </div>
+
             <div class="card">
                 <h3>📅 История DOZ TEAM</h3>
                 <p>Я просто гулял с друзьями, и один из них предложил залезть на девятиэтажку. Мы очень боялись, но всё-таки решились и поднялись наверх.</p>
@@ -455,12 +472,12 @@
                 <div class="city-card active" data-city="all">
                     <div class="city-icon">🌍</div>
                     <div class="city-name">Все города</div>
-                    <div class="city-count" id="countAll">11</div>
+                    <div class="city-count" id="countAll">12</div>
                 </div>
                 <div class="city-card" data-city="frankovsk">
                     <div class="city-icon">🏔️</div>
                     <div class="city-name">Ивано-Франковск</div>
-                    <div class="city-count" id="countFrankovsk">5</div>
+                    <div class="city-count" id="countFrankovsk">6</div>
                 </div>
                 <div class="city-card" data-city="nikolaev">
                     <div class="city-icon">⚓</div>
@@ -507,7 +524,7 @@
                     <div class="author-item">
                         <span class="author-rank silver">🥈</span>
                         <span class="author-name"><a href="https://t.me/ianqe" onclick="tg.openLink(this.href); return false;">@ianqe</a></span>
-                        <span class="author-count">4</span>
+                        <span class="author-count">5</span>
                     </div>
                     <div class="author-item">
                         <span class="author-rank bronze">🥉</span>
@@ -631,10 +648,21 @@
                 preservation: "?/10",
                 author: "Карты"
             },
+            // NEW LOCATION
+            {
+                id: 12, name: "Территория Нарко/Психо диспансера", city: "frankovsk", icon: "🏥",
+                coords: "48.92745890454459, 24.694506502928178",
+                desc: "На территории несколько корпусов, и еще иногда ходят нарики с ножом",
+                location: "Ивано-Франковск",
+                entry: "3/10 — В зависимости какой корпус",
+                security: "1/10",
+                preservation: "1/10",
+                author: "@ianqe"
+            },
             {
                 id: 4, name: "Под дом (1)", city: "nikolaev", icon: "🏠",
                 coords: "46.968934, 31.969452",
-                desc: "Заброшка под жилым домом.",
+                desc: "Просто поддом",
                 location: "Николаев",
                 entry: "4/10 — Стоит замок (можно пробивать через щель)",
                 security: "3/10 — Очень много людей",
@@ -644,7 +672,7 @@
             {
                 id: 5, name: "Пять вентшахт", city: "nikolaev", icon: "💨",
                 coords: "46.967763, 31.965294",
-                desc: "Система вентиляционных шахт.",
+                desc: "По имеющейся информации, на объекте есть только 5 вентшахт. Наклонника нет.",
                 location: "Николаев",
                 entry: "4/10 — Несколько заварены и одна завалена",
                 security: "1/10 — Очень мало людей",
@@ -654,7 +682,7 @@
             {
                 id: 6, name: "Под дом (2)", city: "nikolaev", icon: "🏠",
                 coords: "46.972876043922, 32.00108239121922",
-                desc: "Пространство под домом.",
+                desc: "Простой поддом без хабара",
                 location: "Николаев",
                 entry: "?/10",
                 security: "?/10",
@@ -664,7 +692,7 @@
             {
                 id: 7, name: "Под здание мин. обучения", city: "nikolaev", icon: "🏛️",
                 coords: "46.97187082725983, 31.987964647643892",
-                desc: "Под зданием Министерства образования.",
+                desc: "Под здание Министерства образования.",
                 location: "Николаев",
                 entry: "?/10",
                 security: "2/10 — Прохожие",
@@ -735,7 +763,6 @@
                 const p = parseStat(loc.preservation);
                 const isNoUser = loc.author === "Нет юза";
                 
-                // Name with unexplored badge - FULL BADGE IS CLICKABLE
                 let displayName = loc.name;
                 if (loc.unexplored) {
                     displayName = `??? <span class="unexplored-badge" onclick="event.stopPropagation(); openInfoPopup()">Не доследжен ℹ️</span>`;
