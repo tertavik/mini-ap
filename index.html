@@ -1,0 +1,948 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>DOZ TEAM Mini App</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-dark: #050508;
+            --bg-card: rgba(20, 20, 30, 0.6);
+            --bg-card-hover: rgba(30, 30, 50, 0.8);
+            --accent-primary: #ff2e63;
+            --accent-secondary: #00d4ff;
+            --accent-tertiary: #7000ff;
+            --text-main: #ffffff;
+            --text-muted: #8b9bb4;
+            --glass-border: rgba(255, 255, 255, 0.08);
+            --glass-highlight: rgba(255, 255, 255, 0.15);
+            --success: #00ff9d;
+            --warning: #ffbd2e;
+            --danger: #ff2e63;
+            --radius-md: 16px;
+            --radius-sm: 12px;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-dark);
+            color: var(--text-main);
+            line-height: 1.5;
+            min-height: 100dvh;
+            overflow-x: hidden;
+            position: relative;
+        }
+
+        body::before {
+            content: '';
+            position: fixed;
+            top: -50%; left: -50%;
+            width: 200%; height: 200%;
+            background: radial-gradient(circle at 50% 50%, rgba(112, 0, 255, 0.15), transparent 50%),
+                        radial-gradient(circle at 80% 20%, rgba(255, 46, 99, 0.1), transparent 40%),
+                        radial-gradient(circle at 20% 80%, rgba(0, 212, 255, 0.1), transparent 40%);
+            z-index: -1;
+            animation: bgFloat 20s infinite alternate ease-in-out;
+        }
+
+        @keyframes bgFloat {
+            0% { transform: translate(0, 0); }
+            100% { transform: translate(-5%, -5%); }
+        }
+
+        .container { max-width: 500px; margin: 0 auto; padding: 16px 16px 80px; }
+
+        header {
+            position: sticky; top: 0; z-index: 100;
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 16px 0;
+            background: rgba(5, 5, 8, 0.8);
+            backdrop-filter: blur(20px);
+            border-bottom: 1px solid var(--glass-border);
+        }
+        .logo { 
+            font-size: 1.4rem; font-weight: 900; 
+            display: flex; align-items: center; gap: 8px;
+            text-transform: uppercase; letter-spacing: 1px;
+            background: linear-gradient(90deg, #fff, var(--accent-primary));
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+            text-shadow: 0 0 20px rgba(255, 46, 99, 0.3);
+        }
+        .logo-icon { font-size: 1.5rem; filter: drop-shadow(0 0 8px var(--accent-primary)); }
+
+        .tabs {
+            display: flex; gap: 8px; margin: 20px 0;
+            background: rgba(255, 255, 255, 0.03);
+            padding: 4px; border-radius: 100px;
+            border: 1px solid var(--glass-border);
+            position: relative;
+            overflow-x: auto;
+        }
+        .tab-btn {
+            flex: 1; padding: 12px 8px; border: none;
+            border-radius: 100px;
+            background: transparent;
+            color: var(--text-muted);
+            font-weight: 700; font-size: 0.85rem;
+            cursor: pointer; transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            position: relative; z-index: 2;
+            white-space: nowrap;
+        }
+        .tab-btn.active {
+            color: #fff;
+            background: linear-gradient(135deg, var(--accent-primary), var(--accent-tertiary));
+            box-shadow: 0 4px 15px rgba(255, 46, 99, 0.4);
+            transform: scale(1.05);
+        }
+
+        .tab-content { display: none; animation: slideUp 0.4s ease; }
+        .tab-content.active { display: block; }
+
+        @keyframes slideUp {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .card {
+            background: var(--bg-card);
+            border: 1px solid var(--glass-border);
+            border-radius: var(--radius-md);
+            padding: 20px;
+            margin-bottom: 16px;
+            backdrop-filter: blur(10px);
+            transition: transform 0.2s, box-shadow 0.2s;
+            position: relative;
+            overflow: hidden;
+        }
+        .card::before {
+            content: ''; position: absolute; top: 0; left: 0; right: 0; height: 1px;
+            background: linear-gradient(90deg, transparent, var(--glass-highlight), transparent);
+        }
+        .card:active { transform: scale(0.98); }
+
+        .card h3 {
+            font-size: 1.1rem; font-weight: 800;
+            margin-bottom: 12px;
+            display: flex; align-items: center; gap: 10px;
+        }
+        .card p { color: var(--text-muted); font-size: 0.95rem; line-height: 1.6; }
+        .card a { color: var(--accent-secondary); text-decoration: none; font-weight: 600; border-bottom: 1px dashed currentColor; }
+
+        .guide-card {
+            background: rgba(112, 0, 255, 0.1);
+            border-color: rgba(112, 0, 255, 0.3);
+        }
+        .guide-card h3 { color: var(--accent-secondary); text-shadow: 0 0 10px rgba(0, 212, 255, 0.5); }
+        .guide-card b { color: #fff; }
+
+        .warning-box {
+            background: rgba(255, 46, 99, 0.08);
+            border: 1px solid var(--danger);
+            border-radius: var(--radius-md);
+            padding: 16px; margin-top: 12px; text-align: center;
+            box-shadow: inset 0 0 20px rgba(255, 46, 99, 0.1);
+        }
+        .warning-box h3 {
+            color: var(--danger); font-size: 1.1rem; margin-bottom: 8px;
+            text-transform: uppercase; letter-spacing: 1px;
+        }
+        .warning-box p { color: #ff8fa3; font-size: 0.85rem; font-weight: 600; }
+
+        .city-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px; margin-bottom: 24px;
+        }
+        .city-card {
+            background: var(--bg-card);
+            border: 1px solid var(--glass-border);
+            border-radius: var(--radius-md);
+            padding: 16px 12px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            position: relative;
+        }
+        .city-card.active {
+            background: rgba(255, 46, 99, 0.15);
+            border-color: var(--accent-primary);
+            box-shadow: 0 0 15px rgba(255, 46, 99, 0.2);
+            transform: translateY(-2px);
+        }
+        .city-icon { font-size: 2rem; margin-bottom: 8px; display: block; filter: drop-shadow(0 0 5px rgba(255,255,255,0.3)); }
+        .city-name { font-weight: 700; font-size: 0.9rem; color: #fff; margin-bottom: 4px; }
+        .city-count { font-size: 0.75rem; color: var(--text-muted); background: rgba(255,255,255,0.05); padding: 2px 8px; border-radius: 20px; display: inline-block; }
+
+        .loc-wrapper {
+            margin-bottom: 12px;
+            border-radius: var(--radius-md);
+            background: var(--bg-card);
+            border: 1px solid var(--glass-border);
+            overflow: hidden;
+            transition: all 0.3s ease;
+        }
+        .loc-wrapper.expanded {
+            border-color: var(--accent-secondary);
+            box-shadow: 0 0 15px rgba(0, 212, 255, 0.1);
+        }
+        
+        .loc-card {
+            padding: 16px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            transition: background 0.2s;
+        }
+        .loc-card:active { background: rgba(255,255,255,0.05); }
+
+        .loc-icon {
+            width: 48px; height: 48px;
+            background: linear-gradient(135deg, var(--accent-primary), var(--accent-tertiary));
+            border-radius: 14px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 1.6rem;
+            box-shadow: 0 4px 10px rgba(255, 46, 99, 0.3);
+            flex-shrink: 0;
+        }
+        
+        .loc-info { flex: 1; min-width: 0; }
+        .loc-info h4 { font-size: 1rem; font-weight: 700; margin-bottom: 4px; color: #fff; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+        .loc-info .coords { font-size: 0.75rem; color: var(--accent-secondary); font-family: 'JetBrains Mono', monospace; letter-spacing: 0.5px; }
+        
+        .loc-arrow {
+            width: 30px; height: 30px;
+            display: flex; align-items: center; justify-content: center;
+            color: var(--text-muted);
+            transition: transform 0.3s;
+            background: rgba(255,255,255,0.05);
+            border-radius: 50%;
+        }
+        .loc-wrapper.expanded .loc-arrow { transform: rotate(180deg); background: var(--accent-secondary); color: #000; }
+
+        .loc-details {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            background: rgba(0, 0, 0, 0.3);
+        }
+        .loc-wrapper.expanded .loc-details { max-height: 900px; }
+        
+        .loc-details-inner {
+            padding: 20px;
+            border-top: 1px solid var(--glass-border);
+        }
+
+        .detail-row { margin-bottom: 16px; }
+        .detail-row:last-child { margin-bottom: 0; }
+        
+        .detail-label {
+            font-size: 0.7rem;
+            color: var(--accent-secondary);
+            margin-bottom: 6px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            display: flex; align-items: center; gap: 6px;
+        }
+        .detail-text { font-size: 0.95rem; color: #ddd; line-height: 1.5; }
+
+        .stats-row {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            margin: 12px 0;
+        }
+        .stat-card {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid var(--glass-border);
+            border-top: 2px solid var(--text-muted);
+            border-radius: var(--radius-sm);
+            padding: 12px 4px;
+            text-align: center;
+        }
+        .stat-card.low { border-top-color: var(--success); }
+        .stat-card.medium { border-top-color: var(--warning); }
+        .stat-card.high { border-top-color: var(--danger); }
+
+        .stat-value {
+            font-size: 1.2rem;
+            font-weight: 900;
+            font-family: 'JetBrains Mono', monospace;
+            margin-bottom: 4px;
+        }
+        .stat-value.low { color: var(--success); text-shadow: 0 0 10px rgba(0, 255, 157, 0.4); }
+        .stat-value.medium { color: var(--warning); text-shadow: 0 0 10px rgba(255, 189, 46, 0.4); }
+        .stat-value.high { color: var(--danger); text-shadow: 0 0 10px rgba(255, 46, 99, 0.4); }
+        .stat-value.unknown { color: var(--text-muted); }
+
+        .stat-label-wrap { font-size: 0.65rem; color: var(--text-muted); text-transform: uppercase; font-weight: 600; }
+        .stat-desc {
+            font-size: 0.7rem;
+            color: var(--text-muted);
+            line-height: 1.2;
+            margin-top: 6px;
+            padding-top: 6px;
+            border-top: 1px solid rgba(255,255,255,0.05);
+        }
+
+        .coords-box {
+            background: rgba(0, 212, 255, 0.05);
+            border: 1px dashed var(--accent-secondary);
+            border-radius: var(--radius-sm);
+            padding: 12px;
+            text-align: center;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.9rem;
+            font-weight: 700;
+            color: var(--accent-secondary);
+            margin: 12px 0;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .coords-box:active { background: rgba(0, 212, 255, 0.15); transform: scale(0.98); }
+
+        .btn-small {
+            width: 100%;
+            padding: 14px;
+            background: linear-gradient(90deg, var(--accent-primary), var(--accent-tertiary));
+            border: none;
+            border-radius: var(--radius-sm);
+            color: white;
+            font-weight: 800;
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            cursor: pointer;
+            margin-top: 8px;
+            box-shadow: 0 4px 15px rgba(255, 46, 99, 0.3);
+            transition: all 0.2s;
+        }
+        .btn-small:active { transform: scale(0.98); filter: brightness(1.2); }
+
+        .info-box {
+            border: 1px solid var(--warning);
+            background: rgba(255, 189, 46, 0.05);
+            text-align: center;
+        }
+        .info-box h3 { color: var(--warning); }
+
+        .tops-container { display: grid; grid-template-columns: 1fr; gap: 16px; }
+        .top-section {
+            background: var(--bg-card);
+            border: 1px solid var(--glass-border);
+            border-radius: var(--radius-md);
+            padding: 16px;
+        }
+        .top-section h3 {
+            font-size: 0.9rem; text-transform: uppercase; letter-spacing: 1px;
+            margin-bottom: 16px; padding-bottom: 10px; border-bottom: 1px solid var(--glass-border);
+            text-align: center; color: var(--text-muted);
+        }
+        
+        .dev-item {
+            background: linear-gradient(135deg, rgba(255, 46, 99, 0.1), rgba(112, 0, 255, 0.1));
+            border: 1px solid var(--accent-primary);
+            border-radius: var(--radius-sm);
+            padding: 14px;
+            text-align: center;
+            margin-bottom: 10px;
+        }
+        .dev-item:last-child { margin-bottom: 0; }
+        .dev-item a { color: var(--accent-primary); font-weight: 800; font-size: 1.1rem; text-decoration: none; }
+        .dev-role { font-size: 0.75rem; color: var(--text-muted); margin-top: 4px; }
+
+        .author-item {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 12px; margin-bottom: 8px;
+            background: rgba(255, 255, 255, 0.02);
+            border-radius: var(--radius-sm);
+            border: 1px solid transparent;
+            transition: all 0.2s;
+        }
+        .author-item:hover { background: rgba(255, 255, 255, 0.05); border-color: var(--glass-border); }
+        .author-item.top-1 {
+            background: rgba(255, 215, 0, 0.05);
+            border-color: rgba(255, 215, 0, 0.3);
+        }
+        .author-rank { font-weight: 900; font-size: 1.2rem; width: 30px; }
+        .author-name { flex: 1; font-weight: 600; font-size: 0.9rem; }
+        .author-name a { color: #fff; text-decoration: none; }
+        .author-count {
+            background: var(--accent-secondary); color: #000;
+            font-weight: 800; font-size: 0.8rem; padding: 4px 10px;
+            border-radius: 20px; box-shadow: 0 0 10px rgba(0, 212, 255, 0.3);
+        }
+
+        .unexplored-badge {
+            background: rgba(255, 189, 46, 0.15);
+            color: var(--warning);
+            font-size: 0.7rem;
+            padding: 4px 8px;
+            border-radius: 6px;
+            border: 1px solid var(--warning);
+            display: inline-flex; align-items: center; gap: 4px;
+            cursor: pointer;
+            animation: pulseBadge 2s infinite;
+        }
+        @keyframes pulseBadge {
+            0% { box-shadow: 0 0 0 0 rgba(255, 189, 46, 0.4); }
+            70% { box-shadow: 0 0 0 6px rgba(255, 189, 46, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(255, 189, 46, 0); }
+        }
+        .unexplored-badge:active { background: rgba(255, 189, 46, 0.3); }
+
+        .popup-overlay {
+            position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0, 0, 0, 0.8); backdrop-filter: blur(5px);
+            z-index: 1999; opacity: 0; visibility: hidden; transition: all 0.3s;
+        }
+        .popup-overlay.active { opacity: 1; visibility: visible; }
+
+        .info-popup {
+            position: fixed; top: 50%; left: 50%;
+            transform: translate(-50%, -50%) scale(0.9);
+            background: #151520;
+            border: 1px solid var(--accent-secondary);
+            border-radius: var(--radius-md);
+            padding: 24px;
+            width: 90%; max-width: 320px;
+            z-index: 2000;
+            opacity: 0; visibility: hidden; transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            box-shadow: 0 0 30px rgba(0, 212, 255, 0.2);
+            text-align: center;
+        }
+        .info-popup.active { opacity: 1; visibility: visible; transform: translate(-50%, -50%) scale(1); }
+        
+        .info-popup h4 { color: var(--accent-secondary); font-size: 1.2rem; margin-bottom: 12px; }
+        .info-popup p { font-size: 0.9rem; color: var(--text-muted); margin-bottom: 10px; }
+        .info-popup .close-popup {
+            width: 100%; padding: 12px;
+            background: var(--accent-secondary); border: none; border-radius: var(--radius-sm);
+            color: #000; font-weight: 800; cursor: pointer; margin-top: 10px;
+        }
+
+        /* MAP STYLES */
+        .map-search-box {
+            margin-bottom: 12px;
+            display: flex;
+            gap: 8px;
+        }
+        .map-search-input {
+            flex: 1;
+            padding: 10px 14px;
+            border-radius: var(--radius-sm);
+            border: 1px solid var(--glass-border);
+            background: rgba(255,255,255,0.05);
+            color: #fff;
+            font-size: 0.9rem;
+            outline: none;
+        }
+        .map-search-input:focus {
+            border-color: var(--accent-secondary);
+            box-shadow: 0 0 0 2px rgba(0, 212, 255, 0.2);
+        }
+        #leafletMap {
+            height: 500px;
+            width: 100%;
+            border-radius: var(--radius-md);
+            z-index: 1;
+            border: 1px solid var(--glass-border);
+        }
+        .leaflet-popup-content-wrapper {
+            background: var(--bg-card);
+            color: var(--text-main);
+            border: 1px solid var(--glass-border);
+            border-radius: var(--radius-sm);
+            backdrop-filter: blur(10px);
+        }
+        .leaflet-popup-content {
+            margin: 12px;
+            font-size: 0.9rem;
+        }
+        .leaflet-popup-tip {
+            background: var(--bg-card);
+        }
+        .leaflet-container a.leaflet-popup-close-button {
+            color: var(--text-main);
+            padding: 8px;
+        }
+        .map-popup-title {
+            font-weight: 700;
+            font-size: 1rem;
+            margin-bottom: 8px;
+            color: var(--accent-secondary);
+        }
+        .map-popup-coords {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            margin-bottom: 8px;
+        }
+        .map-popup-desc {
+            font-size: 0.85rem;
+            line-height: 1.4;
+            margin-bottom: 10px;
+        }
+
+        ::-webkit-scrollbar { width: 4px; }
+        ::-webkit-scrollbar-track { background: var(--bg-dark); }
+        ::-webkit-scrollbar-thumb { background: var(--accent-primary); border-radius: 10px; }
+
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div class="logo"><span class="logo-icon">🏙️</span> DOZ TEAM</div>
+        </header>
+
+        <div class="tabs">
+            <button class="tab-btn active" data-tab="main">🏠 Главное</button>
+            <button class="tab-btn" data-tab="coords">📍 Координаты</button>
+            <button class="tab-btn" data-tab="map-tab">🗺️ Карта</button>
+            <button class="tab-btn" data-tab="tops">🏆 Топы</button>
+        </div>
+
+        <!-- TAB: MAIN -->
+        <div id="main" class="tab-content active">
+            <div class="card guide-card">
+                <h3>ℹ️ Информация 📊</h3>
+                <p>Чем меньше значение в характеристиках — тем лучше.</p>
+                <div style="margin-top: 10px; font-size: 0.85rem;">
+                    <div style="margin-bottom: 6px;">🚪 Залаз — <span style="color:var(--danger)">10/10 сложно</span>, <span style="color:var(--success)">1/10 легко</span></div>
+                    <div style="margin-bottom: 6px;">👮 Охрана — <span style="color:var(--danger)">10/10 много</span>, <span style="color:var(--success)">1/10 мало</span></div>
+                    <div>🏚️ Сохран — <span style="color:var(--danger)">10/10 плохой</span>, <span style="color:var(--success)">1/10 идеальный</span></div>
+                </div>
+            </div>
+
+            <div class="card">
+                <h3>📅 История DOZ TEAM</h3>
+                <p>Я просто гулял с друзьями, и один из них предложил залезть на девятиэтажку. Мы очень боялись, но всё-таки решились и поднялись наверх.</p>
+                <p>Спустя время нас заметила какая-то женщина. Мы не стали рисковать и быстро ушли с места. Это было в начале осени — примерно 10 сентября.</p>
+                <p>Первое видео на <a href="#" onclick="tg.openLink('https://www.tiktok.com/@0ian4ik0'); return false;">TikTok</a> было снято 28 сентября — на крыше двенадцатиэтажного дома.</p>
+                <p>С тех пор мы развиваем сообщество, делимся опытом и помогаем новичкам безопасно исследовать городские пространства.</p>
+            </div>
+
+            <div class="card" style="border-left: 3px solid var(--warning);">
+                <h3 style="color: var(--warning);">⚠️ Принцип DOZ</h3>
+                <p>«Не навреди и не спались». Исследуй ответственно, не шуми, не ломай и всегда уходи тем же путём, которым пришёл.</p>
+            </div>
+
+            <div class="warning-box">
+                <h3>⚠️ ПРЕДУПРЕЖДЕНИЕ</h3>
+                <p>ПОСЕЩАЙТЕ ЭТИ МЕСТА ТОЛЬКО С ДОЛЖНОЙ ПОДГОТОВКОЙ!!!<br><br>
+                МЫ НЕ НЕСЁМ ОТВЕТСТВЕННОСТИ ЗА ВАШИ ДЕЙСТВИЯ ТАМ, ЛЕЗЬТЕ ТУДА ТОЛЬКО НА СВОЙ СТРАХ И РИСК.</p>
+            </div>
+        </div>
+
+        <!-- TAB: COORDS -->
+        <div id="coords" class="tab-content">
+            <div class="city-grid">
+                <div class="city-card active" data-city="all">
+                    <span class="city-icon">🌍</span>
+                    <div class="city-name">Все города</div>
+                    <div class="city-count" id="countAll">13</div>
+                </div>
+                <div class="city-card" data-city="frankovsk">
+                    <span class="city-icon">🏔️</span>
+                    <div class="city-name">Ивано-Франковск</div>
+                    <div class="city-count" id="countFrankovsk">6</div>
+                </div>
+                <div class="city-card" data-city="nikolaev">
+                    <span class="city-icon">⚓</span>
+                    <div class="city-name">Николаев</div>
+                    <div class="city-count" id="countNikolaev">4</div>
+                </div>
+                <div class="city-card" data-city="dnipro">
+                    <span class="city-icon">🌉</span>
+                    <div class="city-name">Днепр</div>
+                    <div class="city-count" id="countDnipro">2</div>
+                </div>
+                <div class="city-card" data-city="rivne">
+                    <span class="city-icon">🌲</span>
+                    <div class="city-name">Ровно</div>
+                    <div class="city-count" id="countRivne">1</div>
+                </div>
+            </div>
+
+            <div id="locationsList"></div>
+
+            <div class="card info-box">
+                <h3>⚠️ Добавить объект</h3>
+                <p>Напишите <a href="#" onclick="tg.openLink('https://t.me/ianqe'); return false;">@ianqe</a></p>
+            </div>
+        </div>
+
+        <!-- TAB: MAP -->
+        <div id="map-tab" class="tab-content">
+            <div class="map-search-box">
+                <input type="text" class="map-search-input" id="mapSearch" placeholder="Поиск объекта...">
+            </div>
+            <div id="leafletMap"></div>
+        </div>
+
+        <!-- TAB: TOPS -->
+        <div id="tops" class="tab-content">
+            <div class="tops-container">
+                <div class="top-section">
+                    <h3>⚙️ Разрабы</h3>
+                    <div class="dev-item">
+                        <a href="https://t.me/ianqe" onclick="tg.openLink(this.href); return false;">@ianqe</a>
+                        <div class="dev-role">Основатель & Dev</div>
+                    </div>
+                </div>
+
+                <div class="top-section">
+                    <h3>📝 Авторы координат</h3>
+                    <div class="author-item top-1">
+                        <span class="author-rank">🥇</span>
+                        <span class="author-name"><a href="https://t.me/FOSFORNAYA_KISLOTA" onclick="tg.openLink(this.href); return false;">@FOSFORNAYA_KISLOTA</a></span>
+                        <span class="author-count">4</span>
+                    </div>
+                    <div class="author-item">
+                        <span class="author-rank">🥈</span>
+                        <span class="author-name"><a href="https://t.me/ianqe" onclick="tg.openLink(this.href); return false;">@ianqe</a></span>
+                        <span class="author-count">4</span>
+                    </div>
+                    <div class="author-item">
+                        <span class="author-rank">🥉</span>
+                        <span class="author-name"><a href="https://t.me/Latiao1488" onclick="tg.openLink(this.href); return false;">@Latiao1488</a></span>
+                        <span class="author-count">1</span>
+                    </div>
+                    <div class="author-item">
+                        <span class="author-rank" style="color:var(--text-muted); font-size:1rem;">4</span>
+                        <span class="author-name"><a href="https://t.me/Steknovych_Danulo" onclick="tg.openLink(this.href); return false;">@Steknovych_Danulo</a></span>
+                        <span class="author-count">1</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- INFO POPUP -->
+    <div class="popup-overlay" id="popupOverlay" onclick="closeInfoPopup()"></div>
+    <div class="info-popup" id="infoPopup">
+        <h4>ℹ️ Информация</h4>
+        <p>Этот объект не исследован.</p>
+        <p>Координаты были взяты с карт и требуют проверки.<br>Мы постараемся как можно быстрее его исследовать.</p>
+        <p>Если у тебя есть информация — сообщи.</p>
+        <button class="close-popup" onclick="closeInfoPopup()">Понял</button>
+    </div>
+
+    <script>
+        const tg = window.Telegram.WebApp;
+        tg.expand();
+        tg.ready();
+
+        // TABS LOGIC (FIXED)
+        document.querySelectorAll('.tab-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+                document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+                btn.classList.add('active');
+                
+                const targetId = btn.dataset.tab;
+                const targetElement = document.getElementById(targetId);
+                if (targetElement) {
+                    targetElement.classList.add('active');
+                }
+                
+                // Initialize map when tab is shown
+                if (targetId === 'map-tab' && !window.mapInitialized) {
+                    setTimeout(() => initMap(), 100);
+                }
+            });
+        });
+
+        function parseStat(str) {
+            const match = str.match(/^([\d?\/]+)\s*[—–\-]?\s*(.*)/);
+            if (!match) return { level: '?', text: str };
+            return { level: match[1], text: match[2] || '' };
+        }
+
+        function getStatClass(level) {
+            if (level === '?') return 'unknown';
+            const num = parseInt(level);
+            if (num <= 3) return 'low';
+            if (num <= 6) return 'medium';
+            return 'high';
+        }
+
+        function openInfoPopup() {
+            document.getElementById('popupOverlay').classList.add('active');
+            document.getElementById('infoPopup').classList.add('active');
+        }
+
+        function closeInfoPopup() {
+            document.getElementById('popupOverlay').classList.remove('active');
+            document.getElementById('infoPopup').classList.remove('active');
+        }
+
+        const locations = [
+            { id: 1, name: "Хлебокомбинат", city: "frankovsk", icon: "🍞", coords: "48.890714, 24.747582", desc: "Заброшенный хлебокомбинат. Много электроники и приборов.", location: "Село Хриплин, стоянка Пресмаш", entry: "2/10 — Через окно либо дверь", security: "9/10 — Много ЧОПа и камер", preservation: "6/10 — Интересное место", author: "@ianqe" },
+            { id: 2, name: "Хз че за об'єкт", city: "frankovsk", icon: "🎓", coords: "48.931920, 24.696256", desc: "Есть лут и компы. Университет Нефти и Газа.", location: "Территория университета", entry: "3/10 — Пролаз в огромных красных дверях", security: "0/10 — Бухой охранник, пропускает", preservation: "4/10", author: "@ianqe" },
+            { id: 3, name: "Баян ББ", city: "frankovsk", icon: "🛡️", coords: "48.930520764272394, 24.706174750936114", desc: "Бомбарь (нужно перелезть через забор). Нет лута.", location: "20 улица Довга", entry: "6/10 — Лестница на 2 конце 'гриба'", security: "4/10 — Есть ЧОП", preservation: "8/10 — Только маски", author: "@ianqe" },
+            { id: 10, name: "Садик", city: "frankovsk", icon: "🧸", coords: "49.011389, 24.341661", desc: "Заброшенный детский сад.", location: "Ивано-Франковск", entry: "1/10 — Через двери", security: "2/10 — Есть сторож", preservation: "3/10", author: "@Steknovych_Danulo" },
+            { id: 11, name: "??? ", city: "frankovsk", icon: "❓", unexplored: true, coords: "48.935995562980295, 24.70767269648573", desc: "Этот объект покачто не доследжен, нету никакой информации", location: "Ивано-Франковск", entry: "?/10", security: "?/10", preservation: "?/10", author: "Карты" },
+            { id: 12, name: "Территория Нарко/Психо диспансера", city: "frankovsk", icon: "🏥", coords: "48.92745890454459, 24.694506502928178", desc: "На территории несколько корпусов, и еще иногда ходят нарики с ножом", location: "Ивано-Франковск", entry: "3/10 — В зависимости какой корпус", security: "1/10", preservation: "1/10", author: "@ianqe" },
+            { id: 4, name: "Под дом (1)", city: "nikolaev", icon: "🏠", coords: "46.968934, 31.969452", desc: "Просто поддом", location: "Николаев", entry: "4/10 — Стоит замок (можно пробивать через щель)", security: "3/10 — Очень много людей", preservation: "?/10", author: "@FOSFORNAYA_KISLOTA" },
+            { id: 5, name: "Пять вентшахт", city: "nikolaev", icon: "💨", coords: "46.967763, 31.965294", desc: "По имеющейся информации, на объекте есть только 5 вентшахт. Наклонника нет.", location: "Николаев", entry: "4/10 — Несколько заварены и одна завалена", security: "1/10 — Очень мало людей", preservation: "?/10", author: "@FOSFORNAYA_KISLOTA" },
+            { id: 6, name: "Под дом (2)", city: "nikolaev", icon: "🏠", coords: "46.972876043922, 32.00108239121922", desc: "Простой поддом без хабара", location: "Николаев", entry: "?/10", security: "?/10", preservation: "?/10", author: "@FOSFORNAYA_KISLOTA" },
+            { id: 7, name: "Под здание мин. обучения", city: "nikolaev", icon: "🏛️", coords: "46.97187082725983, 31.987964647643892", desc: "Под здание Министерства образования.", location: "Николаев", entry: "?/10", security: "2/10 — Прохожие", preservation: "?/10", author: "@FOSFORNAYA_KISLOTA" },
+            { id: 8, name: "Мясокомбинат", city: "dnipro", icon: "🥩", coords: "47.9192229, 33.3066409", desc: "Заброшенный мясокомбинат. Можно найти гниющие противогазы, консервы.", location: "Днепр", entry: "3/10 — Залаз возле разбитого окна. Там стоит покрышка которая помогает залезть в здание.", security: "9/10 — Рабочий цех (риск рабочих), ЧОП (есть КПП), ГШР (ГБР), военка под боком.", preservation: "2/10", author: "Нет юза" },
+            { id: 13, name: "Бомбоубежище под домом", city: "dnipro", icon: "🛡️", coords: "47.9111310, 33.3403968", desc: "В бомбоубежище особо нет чего-нибудь интересного, но для опыта лазнуть можно.", location: "Днепр", entry: "4/10 — Лаз через раколаз, решётку разшатали недавно и она ещё не приварена (информация 11.04.26). Но вход под окнами что может запалить. Много уж там жильцов и эта пятиэтажка довольно живая.", security: "3/10 — Много бабок и людей с 5 этажа", preservation: "3/10 — Там в принципе мало чего осталось, есть книги, огнетушитель. Гермофорточка гнилая, а ФВУ было когда-то, но её вынесли.", author: "Нет юза" },
+            { id: 9, name: "Кирпичный завод", city: "rivne", icon: "🧱", coords: "50.63950290615628, 26.21515106790868", desc: "Заброшенный кирпичный завод.", location: "Ровно", entry: "?/10", security: "5/10 — ЧОП на шкоде", preservation: "2/10", author: "@Latiao1488" }
+        ];
+
+        let currentCity = 'all';
+        let expandedId = null;
+        let map;
+        let markers = [];
+        window.mapInitialized = false;
+
+        document.querySelectorAll('.city-card').forEach(card => {
+            card.addEventListener('click', () => {
+                document.querySelectorAll('.city-card').forEach(c => c.classList.remove('active'));
+                card.classList.add('active');
+                currentCity = card.dataset.city;
+                expandedId = null;
+                renderLocations();
+            });
+        });
+
+        function renderLocations() {
+            const list = document.getElementById('locationsList');
+            list.innerHTML = '';
+            
+            const counts = { all: locations.length, frankovsk: 0, nikolaev: 0, dnipro: 0, rivne: 0 };
+            locations.forEach(l => { if(counts[l.city] !== undefined) counts[l.city]++; });
+            document.getElementById('countAll').textContent = counts.all;
+            document.getElementById('countFrankovsk').textContent = counts.frankovsk;
+            document.getElementById('countNikolaev').textContent = counts.nikolaev;
+            document.getElementById('countDnipro').textContent = counts.dnipro;
+            document.getElementById('countRivne').textContent = counts.rivne;
+
+            const filtered = currentCity === 'all' ? locations : locations.filter(loc => loc.city === currentCity);
+            
+            if (filtered.length === 0) {
+                list.innerHTML = '<div class="card" style="text-align:center;color:var(--text-muted);padding:30px;">Нет локаций</div>';
+                return;
+            }
+
+            filtered.forEach(loc => {
+                const isExpanded = expandedId === loc.id;
+                const authorClean = loc.author.replace('@', '');
+                const e = parseStat(loc.entry);
+                const s = parseStat(loc.security);
+                const p = parseStat(loc.preservation);
+                const isNoUser = loc.author === "Нет юза";
+                
+                let displayName = loc.name;
+                if (loc.unexplored) {
+                    displayName = `??? <span class="unexplored-badge" onclick="event.stopPropagation(); openInfoPopup()">Не доследжен ℹ️</span>`;
+                }
+
+                const wrapper = document.createElement('div');
+                wrapper.className = 'loc-wrapper' + (isExpanded ? ' expanded' : '');
+                
+                wrapper.innerHTML = `
+                    <div class="loc-card" onclick="toggleLocation(${loc.id})">
+                        <div class="loc-icon">${loc.icon || '📍'}</div>
+                        <div class="loc-info">
+                            <h4>${displayName}</h4>
+                            <div class="coords">${loc.coords}</div>
+                        </div>
+                        <div class="loc-arrow">▼</div>
+                    </div>
+                    <div class="loc-details">
+                        <div class="loc-details-inner">
+                            <div class="detail-row">
+                                <div class="detail-label">📝 Описание</div>
+                                <div class="detail-text">${loc.desc}</div>
+                            </div>
+                            <div class="detail-row">
+                                <div class="detail-label">📍 Где</div>
+                                <div class="detail-text">${loc.location}</div>
+                            </div>
+
+                            <div class="detail-row">
+                                <div class="detail-label">📊 Характеристики</div>
+                                <div class="stats-row">
+                                    <div class="stat-card ${getStatClass(e.level)}">
+                                        <div class="stat-value ${getStatClass(e.level)}">${e.level}</div>
+                                        <div class="stat-label-wrap">🚪 Залаз</div>
+                                        ${e.text ? `<div class="stat-desc">${e.text}</div>` : ''}
+                                    </div>
+                                    <div class="stat-card ${getStatClass(s.level)}">
+                                        <div class="stat-value ${getStatClass(s.level)}">${s.level}</div>
+                                        <div class="stat-label-wrap">👮 Охрана</div>
+                                        ${s.text ? `<div class="stat-desc">${s.text}</div>` : ''}
+                                    </div>
+                                    <div class="stat-card ${getStatClass(p.level)}">
+                                        <div class="stat-value ${getStatClass(p.level)}">${p.level}</div>
+                                        <div class="stat-label-wrap">🏚️ Сохран</div>
+                                        ${p.text ? `<div class="stat-desc">${p.text}</div>` : ''}
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="detail-row">
+                                <div class="detail-label">🎯 Координаты</div>
+                                <div class="coords-box" onclick="copyCoords('${loc.coords}')">${loc.coords}</div>
+                                <button class="btn-small" onclick="event.stopPropagation(); openGoogleMaps('${loc.coords}')">🗺️ Открыть на Google Maps</button>
+                                <button class="btn-small" onclick="event.stopPropagation(); showOnMap(${loc.id})" style="margin-top: 8px; background: linear-gradient(90deg, var(--accent-secondary), var(--accent-tertiary));">📍 Открыть на карте координат</button>
+                            </div>
+
+                            <div class="detail-row" style="text-align:right; margin-top:12px; border-top:1px solid var(--glass-border); padding-top:12px;">
+                                <span style="font-size:0.75rem; color:var(--text-muted); text-transform:uppercase; letter-spacing:1px;">Автор:</span>
+                                ${isNoUser ? '<span style="color:var(--text-muted); margin-left:4px;">Нету юза/аноним</span>' :
+                                (loc.author.startsWith('@') 
+                                    ? `<a class="author-link" href="https://t.me/${authorClean}" onclick="event.stopPropagation(); tg.openLink(this.href); return false;" style="margin-left:4px; color:var(--accent-secondary); text-decoration:none; font-weight:700;">${loc.author}</a>`
+                                    : `<span style="color:var(--text-muted); margin-left:4px;">${loc.author}</span>`)}
+                            </div>
+                        </div>
+                    </div>
+                `;
+                
+                list.appendChild(wrapper);
+            });
+        }
+
+        function toggleLocation(id) {
+            expandedId = expandedId === id ? null : id;
+            renderLocations();
+        }
+
+        function copyCoords(coords) {
+            navigator.clipboard.writeText(coords);
+            tg.showPopup({
+                title: 'Координаты',
+                message: 'Координаты скопированы!',
+                buttons: [{type: 'ok'}]
+            });
+        }
+
+        function openGoogleMaps(coords) {
+            const clean = coords.replace(/\s/g, '');
+            const [lat, lng] = clean.split(',');
+            tg.openLink(`https://www.google.com/maps?q=${lat},${lng}`);
+        }
+
+        function showOnMap(id) {
+            // Switch to map tab
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+            
+            const mapBtn = document.querySelector('[data-tab="map-tab"]');
+            if (mapBtn) mapBtn.classList.add('active');
+            
+            const mapTab = document.getElementById('map-tab');
+            if (mapTab) mapTab.classList.add('active');
+            
+            // Initialize map if needed
+            if (!window.mapInitialized) {
+                initMap();
+            }
+            
+            // Find and fly to location
+            const loc = locations.find(l => l.id === id);
+            if (loc && map) {
+                const [lat, lng] = loc.coords.split(',').map(c => parseFloat(c.trim()));
+                map.flyTo([lat, lng], 16, {
+                    duration: 1.5
+                });
+                
+                // Open popup
+                const marker = markers.find(m => m.locationId === id);
+                if (marker) {
+                    setTimeout(() => marker.openPopup(), 1600);
+                }
+            }
+        }
+
+        function initMap() {
+            if (window.mapInitialized) return;
+            
+            // Initialize Leaflet map centered on Ukraine
+            map = L.map('leafletMap', {
+                center: [48.3794, 31.1656], // Center of Ukraine
+                zoom: 6,
+                zoomControl: true,
+                attributionControl: true
+            });
+
+            // Add OpenStreetMap tiles (dark theme)
+            L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+                subdomains: 'abcd',
+                maxZoom: 19
+            }).addTo(map);
+
+            // Add markers for all locations
+            locations.forEach(loc => {
+                const [lat, lng] = loc.coords.split(',').map(c => parseFloat(c.trim()));
+                
+                const marker = L.marker([lat, lng]).addTo(map);
+                marker.locationId = loc.id;
+                
+                const popupContent = `
+                    <div class="map-popup-title">${loc.icon || '📍'} ${loc.name}</div>
+                    <div class="map-popup-coords">${loc.coords}</div>
+                    <div class="map-popup-desc">${loc.desc}</div>
+                    <button onclick="showOnMap(${loc.id}); document.querySelector('[data-tab=\'coords\']').click();" style="margin-top:8px; padding:6px 12px; background:var(--accent-secondary); border:none; border-radius:6px; color:#000; font-weight:600; cursor:pointer; font-size:0.8rem;">Подробнее</button>
+                `;
+                
+                marker.bindPopup(popupContent, {
+                    maxWidth: 250,
+                    className: 'custom-popup'
+                });
+                
+                markers.push(marker);
+            });
+
+            // Search functionality
+            const searchInput = document.getElementById('mapSearch');
+            if (searchInput) {
+                searchInput.addEventListener('input', (e) => {
+                    const query = e.target.value.toLowerCase();
+                    if (query.length < 2) return;
+                    
+                    const found = locations.find(loc => 
+                        loc.name.toLowerCase().includes(query) || 
+                        loc.city.toLowerCase().includes(query)
+                    );
+                    
+                    if (found) {
+                        const [lat, lng] = found.coords.split(',').map(c => parseFloat(c.trim()));
+                        map.flyTo([lat, lng], 16);
+                        const marker = markers.find(m => m.locationId === found.id);
+                        if (marker) marker.openPopup();
+                    }
+                });
+            }
+
+            window.mapInitialized = true;
+        }
+
+        // Check URL hash on load for direct linking
+        window.addEventListener('load', () => {
+            const hash = window.location.hash;
+            if (hash.startsWith('#loc-')) {
+                const id = parseInt(hash.replace('#loc-', ''));
+                if (!isNaN(id)) {
+                    setTimeout(() => showOnMap(id), 500);
+                }
+            }
+        });
+
+        renderLocations();
+    </script>
+</body>
+</html>
