@@ -1,0 +1,966 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>DOZ TEAM Mini App</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-dark: #050508;
+            --bg-card: rgba(20, 20, 30, 0.6);
+            --accent-primary: #ff2e63;
+            --accent-secondary: #00d4ff;
+            --accent-tertiary: #7000ff;
+            --text-main: #ffffff;
+            --text-muted: #8b9bb4;
+            --glass-border: rgba(255, 255, 255, 0.08);
+            --success: #00ff9d;
+            --warning: #ffbd2e;
+            --danger: #ff2e63;
+            --radius-md: 16px;
+            --radius-sm: 12px;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        body { font-family: 'Inter', sans-serif; background: var(--bg-dark); color: var(--text-main); line-height: 1.5; min-height: 100dvh; position: relative; -webkit-text-size-adjust: 100%; }
+        body::before { content: ''; position: fixed; top: -50%; left: -50%; width: 200%; height: 200%; background: radial-gradient(circle at 50% 50%, rgba(112, 0, 255, 0.15), transparent 50%), radial-gradient(circle at 80% 20%, rgba(255, 46, 99, 0.1), transparent 40%), radial-gradient(circle at 20% 80%, rgba(0, 212, 255, 0.1), transparent 40%); z-index: -1; animation: bgFloat 20s infinite alternate ease-in-out; }
+        @keyframes bgFloat { 0% { transform: translate(0, 0); } 100% { transform: translate(-5%, -5%); } }
+
+        .container { max-width: 500px; margin: 0 auto; padding: 12px; padding-bottom: 80px; }
+        header { position: sticky; top: 0; z-index: 100; display: flex; align-items: center; justify-content: space-between; padding: 12px 0; background: rgba(5, 5, 8, 0.9); backdrop-filter: blur(20px); border-bottom: 1px solid var(--glass-border); }
+        .logo { font-size: 1.2rem; font-weight: 900; display: flex; align-items: center; gap: 6px; text-transform: uppercase; letter-spacing: 1px; background: linear-gradient(90deg, #fff, var(--accent-primary)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .logo-icon { font-size: 1.3rem; filter: drop-shadow(0 0 8px var(--accent-primary)); }
+
+        .notification-bell {
+            width: 36px; height: 36px; background: rgba(255, 255, 255, 0.05); border: 1px solid var(--glass-border);
+            border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer;
+            font-size: 1.2rem; transition: all 0.3s; margin-left: 12px;
+        }
+        .notification-bell:hover { background: rgba(255, 255, 255, 0.1); transform: scale(1.1); }
+        .notification-bell.has-notifications::after {
+            content: ''; position: absolute; top: 6px; right: 6px; width: 8px; height: 8px;
+            background: var(--danger); border-radius: 50%; border: 2px solid var(--bg-dark);
+        }
+
+        .tabs { display: flex; gap: 6px; margin: 12px 0; background: rgba(255, 255, 255, 0.03); padding: 6px; border-radius: var(--radius-md); border: 1px solid var(--glass-border); overflow-x: auto; }
+        .tab-btn { flex: 1; min-width: 60px; padding: 10px 6px; border: none; border-radius: var(--radius-sm); background: transparent; color: var(--text-muted); cursor: pointer; transition: all 0.3s; display: flex; flex-direction: column; align-items: center; gap: 4px; }
+        .tab-btn .tab-icon { font-size: 1.6rem; line-height: 1; }
+        .tab-btn .tab-label { font-size: 0.7rem; font-weight: 600; text-align: center; }
+        .tab-btn.active { color: #fff; background: linear-gradient(135deg, var(--accent-primary), var(--accent-tertiary)); box-shadow: 0 4px 15px rgba(255, 46, 99, 0.4); transform: scale(1.05); }
+        
+        .tab-content { display: none; }
+        .tab-content.active { display: block; animation: fadeIn 0.3s ease; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+
+        .card { background: var(--bg-card); border: 1px solid var(--glass-border); border-radius: var(--radius-md); padding: 16px; margin-bottom: 12px; backdrop-filter: blur(10px); }
+        .card h3 { font-size: 1rem; font-weight: 800; margin-bottom: 10px; display: flex; align-items: center; gap: 8px; }
+        .card p { color: var(--text-muted); font-size: 0.9rem; line-height: 1.5; }
+        .card a { color: var(--accent-secondary); text-decoration: none; font-weight: 600; border-bottom: 1px dashed currentColor; cursor: pointer; }
+
+        .rank-badge { display: inline-flex; align-items: center; gap: 4px; padding: 3px 8px; border-radius: 20px; font-size: 0.75rem; font-weight: 700; border: 1px solid currentColor; }
+        .points-display { font-family: 'JetBrains Mono', monospace; font-size: 1.3rem; font-weight: 800; color: var(--accent-secondary); margin: 8px 0; }
+        .currency-display { font-family: 'JetBrains Mono', monospace; font-size: 1.1rem; font-weight: 700; color: var(--warning); margin: 8px 0; display: flex; align-items: center; justify-content: center; gap: 4px; }
+        
+        .verified-badge {
+            display: inline-flex; align-items: center; justify-content: center;
+            width: 16px; height: 16px; background: var(--accent-secondary); border-radius: 50%;
+            margin-left: 4px; font-size: 0.65rem; color: #000; cursor: pointer; transition: transform 0.2s;
+        }
+        .verified-badge:active { transform: scale(0.9); }
+
+        .avatar-wrapper { position: relative; width: 80px; height: 80px; margin: 0 auto 12px; }
+        .avatar-img { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; border: 2px solid var(--accent-secondary); display: none; }
+        .avatar-fallback { width: 100%; height: 100%; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 2rem; font-weight: 800; color: #fff; background: linear-gradient(135deg, var(--accent-primary), var(--accent-tertiary)); text-transform: uppercase; }
+        
+        .search-bar { margin-bottom: 12px; }
+        .search-input { width: 100%; padding: 10px 12px; border-radius: var(--radius-sm); border: 1px solid var(--glass-border); background: rgba(255,255,255,0.05); color: #fff; font-size: 0.9rem; outline: none; }
+        .search-input:focus { border-color: var(--accent-secondary); box-shadow: 0 0 0 2px rgba(0, 212, 255, 0.2); }
+
+        .city-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 16px; }
+        .city-card { background: var(--bg-card); border: 1px solid var(--glass-border); border-radius: var(--radius-md); padding: 12px 10px; text-align: center; cursor: pointer; transition: all 0.3s ease; }
+        .city-card.active { background: rgba(255, 46, 99, 0.15); border-color: var(--accent-primary); box-shadow: 0 0 15px rgba(255, 46, 99, 0.2); transform: translateY(-2px); }
+        .city-icon { font-size: 1.8rem; margin-bottom: 6px; display: block; }
+        .city-name { font-weight: 700; font-size: 0.85rem; color: #fff; margin-bottom: 3px; }
+        .city-count { font-size: 0.7rem; color: var(--text-muted); background: rgba(255,255,255,0.05); padding: 2px 6px; border-radius: 20px; display: inline-block; }
+
+        .loc-wrapper { margin-bottom: 10px; border-radius: var(--radius-md); background: var(--bg-card); border: 1px solid var(--glass-border); overflow: hidden; transition: all 0.3s ease; }
+        .loc-wrapper.expanded { border-color: var(--accent-secondary); box-shadow: 0 0 15px rgba(0, 212, 255, 0.1); }
+        .loc-wrapper.favorite { border-left: 3px solid var(--warning); }
+        .loc-card { padding: 14px; cursor: pointer; display: flex; align-items: center; gap: 12px; transition: background 0.2s; }
+        .loc-card:active { background: rgba(255,255,255,0.05); }
+        .loc-icon { width: 44px; height: 44px; background: linear-gradient(135deg, var(--accent-primary), var(--accent-tertiary)); border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 1.4rem; box-shadow: 0 4px 10px rgba(255, 46, 99, 0.3); flex-shrink: 0; }
+        .loc-info { flex: 1; min-width: 0; }
+        .loc-info h4 { font-size: 0.95rem; font-weight: 700; margin-bottom: 3px; color: #fff; display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }
+        .loc-info .coords { font-size: 0.7rem; color: var(--accent-secondary); font-family: 'JetBrains Mono', monospace; letter-spacing: 0.5px; }
+        .loc-actions { display: flex; flex-direction: column; gap: 6px; align-items: flex-end; }
+        .favorite-btn { width: 32px; height: 32px; border-radius: 50%; background: rgba(255,255,255,0.05); border: 1px solid var(--glass-border); color: var(--text-muted); display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.2s; font-size: 1.1rem; }
+        .favorite-btn.active { background: var(--warning); color: #000; border-color: var(--warning); }
+        .loc-arrow { width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; color: var(--text-muted); transition: transform 0.3s; background: rgba(255,255,255,0.05); border-radius: 50%; }
+        .loc-wrapper.expanded .loc-arrow { transform: rotate(180deg); background: var(--accent-secondary); color: #000; }
+        .loc-details { max-height: 0; overflow: hidden; transition: max-height 0.4s cubic-bezier(0.4, 0, 0.2, 1); background: rgba(0, 0, 0, 0.3); }
+        .loc-wrapper.expanded .loc-details { max-height: 900px; }
+        .loc-details-inner { padding: 16px; border-top: 1px solid var(--glass-border); }
+        .detail-row { margin-bottom: 14px; }
+        .detail-row:last-child { margin-bottom: 0; }
+        .detail-label { font-size: 0.65rem; color: var(--accent-secondary); margin-bottom: 5px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; display: flex; align-items: center; gap: 4px; }
+        .detail-text { font-size: 0.9rem; color: #ddd; line-height: 1.4; }
+        .stats-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 10px 0; }
+        .stat-card { background: rgba(255, 255, 255, 0.03); border: 1px solid var(--glass-border); border-top: 2px solid var(--text-muted); border-radius: var(--radius-sm); padding: 10px 3px; text-align: center; }
+        .stat-card.low { border-top-color: var(--success); }
+        .stat-card.medium { border-top-color: var(--warning); }
+        .stat-card.high { border-top-color: var(--danger); }
+        .stat-value { font-size: 1.1rem; font-weight: 900; font-family: 'JetBrains Mono', monospace; margin-bottom: 3px; }
+        .stat-value.low { color: var(--success); text-shadow: 0 0 10px rgba(0, 255, 157, 0.4); }
+        .stat-value.medium { color: var(--warning); text-shadow: 0 0 10px rgba(255, 189, 46, 0.4); }
+        .stat-value.high { color: var(--danger); text-shadow: 0 0 10px rgba(255, 46, 99, 0.4); }
+        .stat-value.unknown { color: var(--text-muted); }
+        .stat-label-wrap { font-size: 0.6rem; color: var(--text-muted); text-transform: uppercase; font-weight: 600; }
+        .stat-desc { font-size: 0.65rem; color: var(--text-muted); line-height: 1.2; margin-top: 5px; padding-top: 5px; border-top: 1px solid rgba(255,255,255,0.05); }
+        .coords-box { background: rgba(0, 212, 255, 0.05); border: 1px dashed var(--accent-secondary); border-radius: var(--radius-sm); padding: 10px; text-align: center; font-family: 'JetBrains Mono', monospace; font-size: 0.85rem; font-weight: 700; color: var(--accent-secondary); margin: 10px 0; cursor: pointer; transition: all 0.2s; }
+        .coords-box:active { background: rgba(0, 212, 255, 0.15); transform: scale(0.98); }
+        .btn-small { width: 100%; padding: 12px; background: linear-gradient(90deg, var(--accent-primary), var(--accent-tertiary)); border: none; border-radius: var(--radius-sm); color: white; font-weight: 800; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.5px; cursor: pointer; margin-top: 6px; box-shadow: 0 4px 15px rgba(255, 46, 99, 0.3); transition: all 0.2s; }
+        .btn-small:active { transform: scale(0.98); filter: brightness(1.2); }
+        .info-box { border: 1px solid var(--warning); background: rgba(255, 189, 46, 0.05); text-align: center; }
+        .info-box h3 { color: var(--warning); }
+        .tops-container { display: grid; grid-template-columns: 1fr; gap: 12px; width: 100%; }
+        .top-section { background: var(--bg-card); border: 1px solid var(--glass-border); border-radius: var(--radius-md); padding: 14px; width: 100%; }
+        .top-section h3 { font-size: 0.85rem; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px solid var(--glass-border); text-align: center; color: var(--text-muted); }
+        .ranking-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+        .ranking-table th, .ranking-table td { padding: 8px 6px; text-align: left; border-bottom: 1px solid var(--glass-border); }
+        .ranking-table th { font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase; }
+        .ranking-table tr:last-child td { border-bottom: none; }
+        
+        .dev-item { background: linear-gradient(135deg, rgba(255, 46, 99, 0.1), rgba(112, 0, 255, 0.1)); border: 1px solid var(--accent-primary); border-radius: var(--radius-sm); padding: 12px; text-align: center; margin-bottom: 8px; }
+        .dev-item:last-child { margin-bottom: 0; }
+        .dev-item a { color: var(--accent-primary); font-weight: 800; font-size: 1rem; text-decoration: none; }
+        .author-item { display: flex; justify-content: space-between; align-items: center; padding: 10px; margin-bottom: 6px; background: rgba(255, 255, 255, 0.02); border-radius: var(--radius-sm); border: 1px solid transparent; transition: all 0.2s; }
+        .author-item:hover { background: rgba(255, 255, 255, 0.05); border-color: var(--glass-border); }
+        .author-item.top-1 { background: rgba(255, 215, 0, 0.05); border-color: rgba(255, 215, 0, 0.3); }
+        .author-rank { font-weight: 900; font-size: 1.1rem; width: 28px; }
+        .author-name { flex: 1; font-weight: 600; font-size: 0.85rem; display: flex; align-items: center; gap: 3px; }
+        .author-name a { color: #fff; text-decoration: none; }
+        .author-count { background: var(--accent-secondary); color: #000; font-weight: 800; font-size: 0.75rem; padding: 3px 8px; border-radius: 20px; box-shadow: 0 0 10px rgba(0, 212, 255, 0.3); }
+        .unexplored-badge { background: rgba(255, 189, 46, 0.15); color: var(--warning); font-size: 0.65rem; padding: 3px 6px; border-radius: 6px; border: 1px solid var(--warning); display: inline-flex; align-items: center; gap: 3px; cursor: pointer; animation: pulseBadge 2s infinite; }
+        @keyframes pulseBadge { 0% { box-shadow: 0 0 0 0 rgba(255, 189, 46, 0.4); } 70% { box-shadow: 0 0 0 6px rgba(255, 189, 46, 0); } 100% { box-shadow: 0 0 0 0 rgba(255, 189, 46, 0); } }
+        .popup-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0, 0, 0, 0.85); backdrop-filter: blur(5px); z-index: 1999; opacity: 0; visibility: hidden; transition: all 0.3s; }
+        .popup-overlay.active { opacity: 1; visibility: visible; }
+        .info-popup { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%) scale(0.9); background: #151520; border: 1px solid var(--accent-secondary); border-radius: var(--radius-md); padding: 20px; width: 90%; max-width: 300px; z-index: 2000; opacity: 0; visibility: hidden; transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); box-shadow: 0 0 30px rgba(0, 212, 255, 0.2); text-align: center; }
+        .info-popup.active { opacity: 1; visibility: visible; transform: translate(-50%, -50%) scale(1); }
+        .info-popup h4 { color: var(--accent-secondary); font-size: 1.1rem; margin-bottom: 10px; }
+        .info-popup p { font-size: 0.85rem; color: var(--text-muted); margin-bottom: 8px; }
+        .info-popup .close-popup { width: 100%; padding: 10px; background: var(--accent-secondary); border: none; border-radius: var(--radius-sm); color: #000; font-weight: 800; cursor: pointer; margin-top: 8px; font-size: 0.85rem; }
+        .map-search-box { margin-bottom: 10px; display: flex; gap: 6px; }
+        .map-search-input { flex: 1; padding: 8px 12px; border-radius: var(--radius-sm); border: 1px solid var(--glass-border); background: rgba(255,255,255,0.05); color: #fff; font-size: 0.85rem; outline: none; }
+        .map-search-input:focus { border-color: var(--accent-secondary); box-shadow: 0 0 0 2px rgba(0, 212, 255, 0.2); }
+        #leafletMap { height: 400px; width: 100%; border-radius: var(--radius-md); z-index: 1; border: 1px solid var(--glass-border); }
+        .leaflet-popup-content-wrapper { background: var(--bg-card); color: var(--text-main); border: 1px solid var(--glass-border); border-radius: var(--radius-sm); backdrop-filter: blur(10px); }
+        .leaflet-popup-content { margin: 10px; font-size: 0.85rem; }
+        .leaflet-popup-tip { background: var(--bg-card); }
+        .leaflet-container a.leaflet-popup-close-button { color: var(--text-main); padding: 6px; }
+        .map-popup-title { font-weight: 700; font-size: 0.95rem; margin-bottom: 6px; color: var(--accent-secondary); }
+        .map-popup-coords { font-family: 'JetBrains Mono', monospace; font-size: 0.75rem; color: var(--text-muted); margin-bottom: 6px; }
+        .map-popup-desc { font-size: 0.8rem; line-height: 1.3; margin-bottom: 8px; }
+        .object-id { font-family: 'JetBrains Mono', monospace; font-size: 0.65rem; color: var(--accent-tertiary); background: rgba(112, 0, 255, 0.15); padding: 2px 5px; border-radius: 4px; border: 1px solid rgba(112, 0, 255, 0.3); }
+        .back-btn { background: none; border: none; color: var(--accent-secondary); font-size: 0.85rem; cursor: pointer; margin-bottom: 10px; display: flex; align-items: center; gap: 3px; }
+        .author-link { color: var(--accent-secondary); text-decoration: none; font-weight: 700; cursor: pointer; margin-left: 3px; }
+        .author-link:hover { text-decoration: underline; }
+        .faq-list { display: flex; flex-direction: column; gap: 6px; margin-top: 6px; }
+        .faq-item { border-radius: var(--radius-sm); overflow: hidden; border: 1px solid var(--glass-border); }
+        .faq-q { padding: 10px 12px; background: rgba(255,255,255,0.03); cursor: pointer; font-weight: 600; font-size: 0.85rem; display: flex; justify-content: space-between; align-items: center; user-select: none; }
+        .faq-q::after { content: '+'; font-size: 1.1rem; color: var(--accent-secondary); transition: transform 0.3s; }
+        .faq-q.active::after { content: '−'; transform: rotate(180deg); }
+        .faq-a { max-height: 0; overflow: hidden; transition: max-height 0.3s ease, padding 0.3s ease; padding: 0 12px; background: rgba(0,0,0,0.2); color: var(--text-muted); font-size: 0.85rem; line-height: 1.4; }
+        .faq-a.active { max-height: 300px; padding: 10px 12px; }
+
+        .report-btn { width: 100%; padding: 12px; border: none; border-radius: var(--radius-sm); font-weight: 700; font-size: 0.85rem; cursor: pointer; margin-top: 8px; transition: all 0.2s; display: flex; align-items: center; justify-content: center; gap: 6px; }
+        .report-btn:active { transform: scale(0.98); }
+        .report-btn.complain { background: rgba(239, 68, 68, 0.15); color: #ff6b6b; border: 1px solid rgba(239, 68, 68, 0.3); }
+        .report-btn.problem { background: rgba(0, 212, 255, 0.1); color: var(--accent-secondary); border: 1px solid rgba(0, 212, 255, 0.3); }
+
+        .profile-posts-section { margin-top: 20px; }
+        .section-title { font-size: 1rem; font-weight: 700; margin-bottom: 12px; color: var(--text-main); border-bottom: 1px solid var(--glass-border); padding-bottom: 8px; }
+        .posts-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+        .post-item {
+            background: var(--bg-card); border: 1px solid var(--glass-border); border-radius: var(--radius-sm);
+            padding: 15px 10px; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column;
+            align-items: center; text-align: center; min-height: 110px; justify-content: center; gap: 6px;
+        }
+        .post-item:hover { border-color: var(--accent-secondary); transform: translateY(-2px); }
+        .post-item:active { transform: scale(0.98); }
+        .post-icon { font-size: 2rem; margin-bottom: 4px; }
+        .post-name { font-size: 0.95rem; font-weight: 700; color: #fff; line-height: 1.3; margin: 4px 0; word-wrap: break-word; }
+        .post-city { font-size: 0.75rem; color: var(--text-muted); }
+
+        .reputation-badge {
+            display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; border-radius: 20px;
+            font-size: 0.8rem; font-weight: 700; margin-top: 6px;
+        }
+        .reputation-imba { background: rgba(0, 255, 157, 0.15); color: var(--success); border: 1px solid var(--success); }
+        .reputation-high { background: rgba(255, 189, 46, 0.15); color: var(--warning); border: 1px solid var(--warning); }
+        .reputation-medium { background: rgba(255, 189, 46, 0.1); color: #ffa500; border: 1px solid #ffa500; }
+        .reputation-low { background: rgba(255, 46, 99, 0.15); color: var(--danger); border: 1px solid var(--danger); }
+        .reputation-ban-threat { 
+            background: rgba(139, 0, 0, 0.3); color: #ff1a1a; border: 1px solid #ff1a1a;
+            animation: pulseRed 2s infinite;
+        }
+        @keyframes pulseRed {
+            0% { box-shadow: 0 0 0 0 rgba(255, 26, 26, 0.4); }
+            70% { box-shadow: 0 0 0 10px rgba(255, 26, 26, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(255, 26, 26, 0); }
+        }
+
+        .admin-panel {
+            position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0, 0, 0, 0.95);
+            z-index: 3000; display: none; align-items: center; justify-content: center; padding: 20px;
+        }
+        .admin-panel.active { display: flex; }
+        .admin-content {
+            background: var(--bg-card); border: 1px solid var(--accent-secondary); border-radius: var(--radius-md);
+            padding: 30px; max-width: 400px; width: 100%; text-align: center;
+        }
+        .admin-content h3 { color: var(--accent-secondary); margin-bottom: 20px; }
+        .admin-input {
+            width: 100%; padding: 12px; margin: 10px 0; border-radius: var(--radius-sm);
+            border: 1px solid var(--glass-border); background: rgba(255, 255, 255, 0.05); color: #fff; font-size: 1rem;
+        }
+        .admin-btn {
+            width: 100%; padding: 12px; margin: 10px 0; border-radius: var(--radius-sm); border: none;
+            background: var(--accent-secondary); color: #000; font-weight: 700; cursor: pointer; transition: all 0.2s;
+        }
+        .admin-btn:hover { transform: scale(1.02); }
+        .admin-btn.secondary { background: var(--bg-card); border: 1px solid var(--glass-border); color: var(--text-main); }
+
+        /* NOTIFICATION MODAL */
+        .notification-modal {
+            position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0, 0, 0, 0.9);
+            z-index: 3001; display: none; align-items: center; justify-content: center; padding: 20px;
+        }
+        .notification-modal.active { display: flex; }
+        .notification-modal-content {
+            background: var(--bg-card); border: 2px solid var(--accent-secondary);
+            border-radius: var(--radius-md); padding: 24px; max-width: 350px; width: 100%;
+            text-align: center; box-shadow: 0 0 40px rgba(0, 212, 255, 0.3);
+        }
+        .notification-modal-content h3 { color: var(--accent-secondary); margin-bottom: 16px; font-size: 1.2rem; }
+        .notification-modal-content p { color: var(--text-main); margin-bottom: 20px; line-height: 1.5; }
+        .notification-modal-btn {
+            width: 100%; padding: 12px; border-radius: var(--radius-sm); border: none;
+            background: var(--accent-secondary); color: #000; font-weight: 700; cursor: pointer;
+            transition: all 0.2s; font-size: 0.9rem;
+        }
+        .notification-modal-btn:hover { transform: scale(1.02); }
+
+        ::-webkit-scrollbar { width: 4px; }
+        ::-webkit-scrollbar-track { background: var(--bg-dark); }
+        ::-webkit-scrollbar-thumb { background: var(--accent-primary); border-radius: 10px; }
+        
+        @media (max-width: 380px) {
+            .tabs { gap: 4px; padding: 4px; }
+            .tab-btn { min-width: 55px; padding: 8px 4px; }
+            .tab-btn .tab-icon { font-size: 1.4rem; }
+            .tab-btn .tab-label { font-size: 0.65rem; }
+            .city-grid { grid-template-columns: repeat(2, 1fr); gap: 8px; }
+            .posts-grid { grid-template-columns: repeat(2, 1fr); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div style="display: flex; align-items: center;">
+                <div class="logo"><span class="logo-icon">🏙️</span> DOZ TEAM</div>
+                <div class="notification-bell" id="notificationBell" onclick="showNotifications()">🔔</div>
+            </div>
+        </header>
+
+        <div class="tabs">
+            <button class="tab-btn active" data-tab="main">
+                <span class="tab-icon">🏠</span>
+                <span class="tab-label">Главное</span>
+            </button>
+            <button class="tab-btn" data-tab="coords">
+                <span class="tab-icon">📍</span>
+                <span class="tab-label">Координаты</span>
+            </button>
+            <button class="tab-btn" data-tab="map-tab">
+                <span class="tab-icon">🗺️</span>
+                <span class="tab-label">Карта</span>
+            </button>
+            <button class="tab-btn" data-tab="tops">
+                <span class="tab-icon">🏆</span>
+                <span class="tab-label">Топы</span>
+            </button>
+            <button class="tab-btn" data-tab="profile">
+                <span class="tab-icon">👤</span>
+                <span class="tab-label">Профиль</span>
+            </button>
+        </div>
+
+        <!-- TAB: MAIN -->
+        <div id="main" class="tab-content active">
+            <div class="card" style="background:rgba(112, 0, 255, 0.1); border-color:rgba(112, 0, 255, 0.3);">
+                <h3 style="color:var(--accent-secondary);">ℹ️ Информация</h3>
+                <p>Чем меньше значение — тем лучше.<br>🚪 Залаз: 10/10 сложно, 1/10 легко<br>👮 Охрана: 10/10 много, 1/10 мало<br>🏚️ Сохран: 10/10 плохой, 1/10 идеальный</p>
+            </div>
+            <div class="card">
+                <h3>📅 История DOZ TEAM</h3>
+                <p>Я просто гулял с друзьями, и один из них предложил залезть на девятиэтажку. Мы очень боялись, но всё-таки решились и поднялись наверх.</p>
+                <p>Спустя время нас заметила какая-то женщина. Мы не стали рисковать и быстро ушли с места. Это было в начале осени — примерно 10 сентября.</p>
+                <p>Первое видео на <a href="#" onclick="tg.openLink('https://www.tiktok.com/@0ian4ik0'); return false;">TikTok</a> было снято 28 сентября — на крыше двенадцатиэтажного дома.</p>
+                <p>С тех пор мы развиваем сообщество, делимся опытом и помогаем новичкам безопасно исследовать городские пространства.</p>
+            </div>
+            <div class="card" style="border-left: 3px solid var(--warning);"><h3 style="color:var(--warning);">⚠️ Принцип DOZ</h3><p>«Не навреди и не спались». Исследуй ответственно, не шуми, не ломай и всегда уходи тем же путём, которым пришёл.</p></div>
+            <div class="card" style="background:rgba(255, 46, 99, 0.08); border:1px solid var(--danger); text-align:center;"><h3 style="color:var(--danger);">⚠️ ПРЕДУПРЕЖДЕНИЕ</h3><p style="color:#ff8fa3; font-weight:600;">ПОСЕЩАЙТЕ ЭТИ МЕСТА ТОЛЬКО С ДОЛЖНОЙ ПОДГОТОВКОЙ!!!<br>МЫ НЕ НЕСЁМ ОТВЕТСТВЕННОСТИ ЗА ВАШИ ДЕЙСТВИЯ ТАМ.</p></div>
+            <div class="card" style="border-left: 3px solid var(--accent-secondary);"><h3 style="color:var(--accent-secondary);">❓ FAQ</h3><div class="faq-list"><div class="faq-item"><div class="faq-q" onclick="this.classList.toggle('active'); this.nextElementSibling.classList.toggle('active');">1. ❓ Что это за бот?</div><div class="faq-a">Бот с координатами заброшенных мест, архивами и информацией для диггеров и сталкеров.</div></div><div class="faq-item"><div class="faq-q" id="faqQuestion2" onclick="handleFaqClick(); this.classList.toggle('active'); this.nextElementSibling.classList.toggle('active');">2. ❓ Как пользоваться?</div><div class="faq-a">Откройте мини-приложение через кнопку.</div></div><div class="faq-item"><div class="faq-q" onclick="this.classList.toggle('active'); this.nextElementSibling.classList.toggle('active');">3. ❓ Откуда координаты?</div><div class="faq-a">Добавляют участники и берутся из открытых источников.</div></div><div class="faq-item"><div class="faq-q" onclick="this.classList.toggle('active'); this.nextElementSibling.classList.toggle('active');">4. ❓ Добавить объект?</div><div class="faq-a">Временно через: <a href="https://t.me/ianqe" onclick="tg.openLink(this.href); return false;">@ianqe</a></div></div><div class="faq-item"><div class="faq-q" onclick="this.classList.toggle('active'); this.nextElementSibling.classList.toggle('active');">5. ❓ Точность инфы?</div><div class="faq-a">Может быть неточной. Требуется проверка.</div></div><div class="faq-item"><div class="faq-q" onclick="this.classList.toggle('active'); this.nextElementSibling.classList.toggle('active');">6. ❓ Безопасно?</div><div class="faq-a">Нет гарантий. ⚠️ Вы действуете на свой риск.</div></div></div></div>
+        </div>
+
+        <!-- TAB: COORDS -->
+        <div id="coords" class="tab-content">
+            <div class="search-bar">
+                <input type="text" class="search-input" id="searchInput" placeholder="🔍 Поиск объектов...">
+            </div>
+            <div class="city-grid">
+                <div class="city-card active" data-city="all"><span class="city-icon">🌍</span><div class="city-name">Все</div><div class="city-count" id="countAll">24</div></div>
+                <div class="city-card" data-city="frankovsk"><span class="city-icon">🏔️</span><div class="city-name">Ивано-Франковск</div><div class="city-count" id="countFrankovsk">7</div></div>
+                <div class="city-card" data-city="nikolaev"><span class="city-icon">⚓</span><div class="city-name">Николаев</div><div class="city-count" id="countNikolaev">5</div></div>
+                <div class="city-card" data-city="dnipro"><span class="city-icon">🌉</span><div class="city-name">Днепр/Кривой Рог</div><div class="city-count" id="countDnipro">5</div></div>
+                <div class="city-card" data-city="rivne"><span class="city-icon">🌲</span><div class="city-name">Ровно</div><div class="city-count" id="countRivne">4</div></div>
+                <div class="city-card" data-city="kyiv"><span class="city-icon">🏙️</span><div class="city-name">Киев</div><div class="city-count" id="countKyiv">3</div></div>
+            </div>
+            <div id="locationsList"></div>
+            <div class="card info-box"><h3>⚠️ Добавить объект (+50 💰)</h3><p>Напишите <a href="#" onclick="tg.openLink('https://t.me/ianqe'); return false;">@ianqe</a></p></div>
+        </div>
+
+        <!-- TAB: MAP -->
+        <div id="map-tab" class="tab-content">
+            <div class="map-search-box"><input type="text" class="map-search-input" id="mapSearch" placeholder="Поиск..."></div>
+            <div id="leafletMap"></div>
+        </div>
+
+        <!-- TAB: TOPS -->
+        <div id="tops" class="tab-content">
+            <div class="tops-container">
+                <div class="top-section" style="grid-column: 1 / -1;"><h3>⚙️ Разработчики</h3><div class="dev-item"><a href="https://t.me/ianqe" onclick="tg.openLink(this.href); return false;">@ianqe <span class="verified-badge" onclick="event.stopPropagation(); showVerifiedInfo()">✓</span></a><div class="dev-role">Основатель & Разработчик</div></div></div>
+                <div class="top-section">
+                    <h3>🏆 Топ по баллам</h3>
+                    <table class="ranking-table" id="rankingPoints">
+                        <thead><tr><th>#</th><th>Пользователь</th><th>Баллы</th></tr></thead>
+                        <tbody id="rankingPointsBody"></tbody>
+                    </table>
+                </div>
+                <div class="top-section">
+                    <h3>💰 Топ по деньгам</h3>
+                    <table class="ranking-table" id="rankingMoney">
+                        <thead><tr><th>#</th><th>Пользователь</th><th>Деньги</th></tr></thead>
+                        <tbody id="rankingMoneyBody"></tbody>
+                    </table>
+                </div>
+                <div class="top-section">
+                    <h3>⭐ Топ по рейтингу</h3>
+                    <table class="ranking-table" id="rankingReputation">
+                        <thead><tr><th>#</th><th>Пользователь</th><th>Рейтинг</th></tr></thead>
+                        <tbody id="rankingReputationBody"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB: PROFILE -->
+        <div id="profile" class="tab-content">
+            <div class="card" style="text-align:center; padding: 24px 16px;">
+                <button class="back-btn" id="profileBackBtn" style="display:none;" onclick="navigateToProfile(currentUser)">← Назад</button>
+                
+                <div class="avatar-wrapper">
+                    <img id="profileAvatarImg" class="avatar-img" src="" alt="Avatar" crossorigin="anonymous">
+                    <div id="profileAvatarFallback" class="avatar-fallback">👤</div>
+                </div>
+
+                <h3 id="profileUsername" style="justify-content:center; font-size:1.3rem; margin-bottom:4px; display:flex; align-items:center;">@username</h3>
+                <div id="profileRankBadge" style="margin-bottom:6px;"></div>
+                <div id="profileReputation" class="reputation-badge" style="display:none; margin: 8px auto;"></div>
+                <div class="points-display" id="profilePoints">0 баллов</div>
+                <div class="currency-display" id="profileCurrency">💰 0</div>
+                <p id="profileTgId" style="color:var(--text-muted); margin:12px 0; font-family:'JetBrains Mono', monospace; font-size:0.8rem;">ID: #00000000</p>
+                <p style="margin-top:16px; font-size:0.75rem; color:var(--text-muted);">+5 баллов и +50 💰 за объект</p>
+
+                <div id="profileReportBtn"></div>
+            </div>
+
+            <div class="profile-posts-section">
+                <h4 class="section-title">📍 Объекты пользователя</h4>
+                <div id="postsGrid" class="posts-grid"></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="popup-overlay" id="popupOverlay" onclick="closePopup()"></div>
+    <div class="info-popup" id="infoPopup">
+        <h4 id="popupTitle">ℹ️ Информация</h4>
+        <p id="popupText">Текст</p>
+        <button class="close-popup" onclick="closePopup()">Закрыть</button>
+    </div>
+
+    <!-- NOTIFICATION MODAL -->
+    <div class="notification-modal" id="notificationModal">
+        <div class="notification-modal-content">
+            <h3>🔔 Новое уведомление</h3>
+            <p>У вас есть новое уведомление от DOZ TEAM</p>
+            <button class="notification-modal-btn" onclick="showNotifications(); closeNotificationModal()">Перейти к уведомлениям</button>
+        </div>
+    </div>
+
+    <!-- ADMIN PANEL -->
+    <div class="admin-panel" id="adminPanel">
+        <div class="admin-content">
+            <h3>🔐 Админ панель</h3>
+            <input type="password" class="admin-input" id="adminPassword" placeholder="Введите пароль">
+            <button class="admin-btn" onclick="checkAdminPassword()">Войти</button>
+            <button class="admin-btn secondary" onclick="closeAdminPanel()">Отмена</button>
+        </div>
+    </div>
+
+    <script>
+        const tg = window.Telegram.WebApp;
+        tg.expand();
+        tg.ready();
+
+        const tgUser = tg.initDataUnsafe?.user || { username: 'user_demo', id: 123456789 };
+        let currentUser = localStorage.getItem('doz_custom_username') || tgUser.username || `user_${tgUser.id}`;
+        let favorites = JSON.parse(localStorage.getItem('doz_favorites') || '[]');
+        let currentSearch = '';
+        let currentCity = 'all';
+        let expandedId = null;
+        let faqClickCount = 0;
+
+        // REPUTATION SYSTEM - UPDATED
+        const USER_REPUTATIONS = {
+            'ianqe': 100,
+            'fosfornaya_kislota': 76, // +2 (was 74)
+            'latiao1488': 81,
+            'kukla_kryvogo_roga': 84,
+            'denshikkkkkk': 67,
+            'steknovych_danulo': 57,
+            'im_am_shadow': 77
+        };
+
+        // USER MONEY - UPDATED
+        const USER_MONEY = {
+            'ianqe': 250,
+            'fosfornaya_kislota': 215, // +15 (was 200: 5 for object + 10 for 1st place)
+            'latiao1488': 200,
+            'kukla_kryvogo_roga': 100,
+            'denshikkkkkk': 100,
+            'steknovych_danulo': 50,
+            'im_am_shadow': 100
+        };
+
+        // NOTIFICATIONS SYSTEM
+        const USER_NOTIFICATIONS = {
+            'fosfornaya_kislota': [
+                'Привет @FOSFORNAYA_KISLOTA\n\nТы добавил 1 объект и стал на 1 место в топе по баллам\n\nМы тебе за это начислим:\n+ 2 репутации\n+ 15 денег (5 за объект и 10 за 1 место в топе)'
+            ],
+            'ianqe': [
+                'Привет, это тест сообщение'
+            ]
+        };
+
+        const RANKS = [
+            { name: "Новичок", min: 0, max: 9, color: "#8b9bb4", emoji: "🌱" },
+            { name: "Наблюдатель", min: 10, max: 29, color: "#00d4ff", emoji: "👁️" },
+            { name: "Разведчик", min: 30, max: 79, color: "#2ecc71", emoji: "🔭" },
+            { name: "Оператор DOZ", min: 80, max: 149, color: "#ffbd2e", emoji: "⚡" },
+            { name: "Архивариус", min: 150, max: Infinity, color: "#ff2e63", emoji: "👑" }
+        ];
+        const VERIFIED_USERS = ['ianqe'];
+        const CITY_NAMES = {
+            'all': 'Все', 'frankovsk': 'Ивано-Франковск', 'nikolaev': 'Николаев',
+            'dnipro': 'Днепр/Кривой Рог', 'rivne': 'Ровно', 'kyiv': 'Киев'
+        };
+
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+            
+            const tabBtn = document.querySelector(`[data-tab="${tabId}"]`);
+            const tabContent = document.getElementById(tabId);
+            
+            if (tabBtn) tabBtn.classList.add('active');
+            if (tabContent) tabContent.classList.add('active');
+            
+            if (tabId === 'map-tab' && !window.mapInitialized) setTimeout(initMap, 150);
+            if (tabId === 'tops') renderTops();
+            if (tabId === 'profile') loadProfile(currentUser);
+            if (tabId === 'coords') renderLocations();
+        }
+
+        document.querySelectorAll('.tab-btn').forEach(btn => {
+            btn.addEventListener('click', function(e) {
+                e.preventDefault();
+                switchTab(this.dataset.tab);
+            });
+        });
+
+        function showPopup(title, text) {
+            document.getElementById('popupTitle').textContent = title;
+            document.getElementById('popupText').innerHTML = text;
+            document.getElementById('popupOverlay').classList.add('active');
+            document.getElementById('infoPopup').classList.add('active');
+        }
+
+        function closePopup() {
+            document.getElementById('popupOverlay').classList.remove('active');
+            document.getElementById('infoPopup').classList.remove('active');
+        }
+
+        function showVerifiedInfo() {
+            showPopup('✓ Верифицирован', 'Это один из разработчиков DOZ TEAM. Он имеет полный доступ к системе и отвечает за развитие проекта.');
+        }
+
+        function navigateToProfile(username) {
+            switchTab('profile');
+            loadProfile(username);
+        }
+
+        function getRankInfo(points) { return RANKS.find(r => points >= r.min && points <= r.max) || RANKS[0]; }
+        
+        function getReputationClass(reputation) {
+            if (reputation >= 80) return 'reputation-imba';
+            if (reputation >= 70) return 'reputation-high';
+            if (reputation >= 60) return 'reputation-medium';
+            if (reputation >= 50) return 'reputation-low';
+            return 'reputation-ban-threat';
+        }
+
+        function getReputationText(reputation) {
+            if (reputation >= 80) return 'Имбовый';
+            if (reputation >= 70) return 'Высокий';
+            if (reputation >= 60) return 'Средний';
+            if (reputation >= 50) return 'Низкий';
+            return '⚠️ Угроза бана';
+        }
+
+        function calculateUserPoints(username) {
+            const cleanU = username.replace('@', '').toLowerCase();
+            return locations.filter(l => l.author.replace('@', '').toLowerCase() === cleanU).length * 5;
+        }
+        function calculateUserCurrency(username) {
+            const cleanU = username.replace('@', '').toLowerCase();
+            return USER_MONEY[cleanU] || (locations.filter(l => l.author.replace('@', '').toLowerCase() === cleanU).length * 50);
+        }
+        function isVerified(username) { return VERIFIED_USERS.includes(username.toLowerCase()); }
+
+        function filterLocations(locs) {
+            return locs.filter(loc => {
+                if (currentCity !== 'all' && loc.city !== currentCity) return false;
+                if (currentSearch) {
+                    const match = loc.name.toLowerCase().includes(currentSearch) || loc.desc.toLowerCase().includes(currentSearch) || loc.location.toLowerCase().includes(currentSearch);
+                    if (!match) return false;
+                }
+                return true;
+            });
+        }
+
+        document.getElementById('searchInput').addEventListener('input', (e) => { 
+            currentSearch = e.target.value.toLowerCase(); 
+            renderLocations(); 
+        });
+
+        function toggleFavorite(id) {
+            const index = favorites.indexOf(id);
+            index > -1 ? favorites.splice(index, 1) : favorites.push(id);
+            localStorage.setItem('doz_favorites', JSON.stringify(favorites));
+            if (tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
+            renderLocations();
+        }
+
+        function parseStat(str) {
+            const match = str.match(/^([\d?\/]+)\s*[—–\-]?\s*(.*)/);
+            return match ? { level: match[1], text: match[2] || '' } : { level: '?', text: str };
+        }
+        function getStatClass(level) {
+            if (level === '?') return 'unknown';
+            const num = parseInt(level);
+            return num <= 3 ? 'low' : num <= 6 ? 'medium' : 'high';
+        }
+
+        const locations = [
+            { id: 1, name: "Хлебокомбинат", city: "frankovsk", icon: "🍞", coords: "48.890714, 24.747582", desc: "Заброшенный хлебокомбинат. Много электроники и приборов.", location: "Село Хриплин, стоянка Пресмаш", entry: "2/10 — Через окно либо дверь", security: "9/10 — Много ЧОПа и камер", preservation: "6/10 — Интересное место", author: "@ianqe" },
+            { id: 2, name: "Хз че за объект", city: "frankovsk", icon: "🎓", coords: "48.931920, 24.696256", desc: "Есть лут и компы. Университет Нефти и Газа.", location: "Территория университета", entry: "3/10 — Пролаз в огромных красных дверях", security: "0/10 — Пьяный охранник, пропускает", preservation: "4/10", author: "@ianqe" },
+            { id: 3, name: "Баян ББ", city: "frankovsk", icon: "🛡️", coords: "48.930520764272394, 24.706174750936114", desc: "Бомбарь (нужно перелезть через забор). Нет лута.", location: "20 улица Довга", entry: "6/10 — Лестница на 2 конце 'гриба'", security: "4/10 — Есть ЧОП", preservation: "8/10 — Только маски", author: "@ianqe" },
+            { id: 10, name: "Садик", city: "frankovsk", icon: "🧸", coords: "49.011389, 24.341661", desc: "Заброшенный детский сад.", location: "Ивано-Франковск", entry: "1/10 — Через двери", security: "2/10 — Есть сторож", preservation: "3/10", author: "@Steknovych_Danulo" },
+            { id: 11, name: "??? ", city: "frankovsk", icon: "❓", unexplored: true, coords: "48.935995562980295, 24.70767269648573", desc: "Этот объект пока что не исследован, нет никакой информации", location: "Ивано-Франковск", entry: "?/10", security: "?/10", preservation: "?/10", author: "Карты" },
+            { id: 12, name: "Территория Нарко/Психо диспансера", city: "frankovsk", icon: "🏥", coords: "48.92745890454459, 24.694506502928178", desc: "На территории несколько корпусов, и еще иногда ходят нарики с ножом", location: "Ивано-Франковск", entry: "3/10 — В зависимости какой корпус", security: "1/10", preservation: "1/10", author: "@ianqe" },
+            { id: 14, name: "Походу фурнитурный завод", city: "frankovsk", icon: "🏭", coords: "48.902218418983615, 24.714091995925095", desc: "Походу фурнитурный завод", location: "Ивано-Франковск, возле ТЦ", entry: "7/10 — Нужно карабкаться на 2 этаж и там через окно либо через щель если худой", security: "4/10 — Очень редко охрана но много прохожих, возле ТЦ же", preservation: "5/10", author: "@ianqe" },
+            { id: 4, name: "Под дом (1)", city: "nikolaev", icon: "🏠", coords: "46.968934, 31.969452", desc: "Просто поддом", location: "Николаев", entry: "4/10 — Стоит замок (можно пробивать через щель)", security: "3/10 — Очень много людей", preservation: "?/10", author: "@FOSFORNAYA_KISLOTA" },
+            { id: 5, name: "Пять вентшахт", city: "nikolaev", icon: "💨", coords: "46.967763, 31.965294", desc: "По имеющейся информации, на объекте есть только 5 вентшахт. Наклонника нет.", location: "Николаев", entry: "4/10 — Несколько заварены и одна завалена", security: "1/10 — Очень мало людей", preservation: "?/10", author: "@FOSFORNAYA_KISLOTA" },
+            { id: 6, name: "Под дом (2)", city: "nikolaev", icon: "🏠", coords: "46.972876043922, 32.00108239121922", desc: "Простой поддом без хабара", location: "Николаев", entry: "?/10", security: "?/10", preservation: "?/10", author: "@FOSFORNAYA_KISLOTA" },
+            { id: 7, name: "Под здание мин. обучения", city: "nikolaev", icon: "🏛️", coords: "46.97187082725983, 31.987964647643892", desc: "Под здание Министерства образования.", location: "Николаев", entry: "?/10", security: "2/10 — Прохожие", preservation: "?/10", author: "@FOSFORNAYA_KISLOTA" },
+            { id: 24, name: "ВШ с деревяной решеткой", city: "nikolaev", icon: "🏢", coords: "46.97773633917093, 31.98982459477063", desc: "ВШ с деревяной решеткой", location: "Николаев", entry: "2/10", security: "3/10 — Людное место", preservation: "?/10", author: "@FOSFORNAYA_KISLOTA" },
+            { id: 8, name: "Мясокомбинат", city: "dnipro", icon: "🥩", coords: "47.9192229, 33.3066409", desc: "Заброшенный мясокомбинат. Можно найти гниющие противогазы, консервы.", location: "Днепр/Кривой Рог", entry: "3/10 — Залаз возле разбитого окна. Там стоит покрышка которая помогает залезть в здание.", security: "9/10 — Рабочий цех (риск рабочих), ЧОП (есть КПП), ГШР (ГБР), военка под боком.", preservation: "2/10", author: "@kukla_kryvogo_roga" },
+            { id: 13, name: "Бомбоубежище под домом", city: "dnipro", icon: "🛡️", coords: "47.9111310, 33.3403968", desc: "В бомбоубежище особо нет чего-нибудь интересного, но для опыта лазнуть можно.", location: "Днепр/Кривой Рог", entry: "4/10 — Лаз через раколаз, решётку разшатали недавно и она ещё не приварена (информация 11.04.26). Но вход под окнами что может запалить. Много уж там жильцов и эта пятиэтажка довольно живая.", security: "3/10 — Много бабок и людей с 5 этажа", preservation: "3/10 — Там в принципе мало чего осталось, есть книги, огнетушитель. Гермофорточка гнилая, а ФВУ было когда-то, но её вынесли.", author: "@kukla_kryvogo_roga" },
+            { id: 9, name: "Кирпичный завод", city: "rivne", icon: "🧱", coords: "50.63950290615628, 26.21515106790868", desc: "Заброшенный кирпичный завод.", location: "Ровно", entry: "?/10", security: "5/10 — ЧОП на шкоде", preservation: "2/10", author: "@Latiao1488" },
+            { id: 15, name: "??? ", city: "kyiv", icon: "❓", coords: "50.4888605429193, 30.417463805618066", desc: "Неизвестный объект", location: "Киев", entry: "?/10", security: "3/10 — Дед сторож", preservation: "?/10", author: "@Denshikkkkkk" },
+            { id: 16, name: "??? ", city: "kyiv", icon: "❓", coords: "50.45614664032764, 30.644241050641565", desc: "Неизвестный объект", location: "Киев", entry: "2/10 — Под забором", security: "4/10 — 2 мужика", preservation: "?/10", author: "@Denshikkkkkk" },
+            { id: 17, name: "Баян зб", city: "kyiv", icon: "🛡️", coords: "50.36459241308819, 30.55364030351461", desc: "Баян", location: "Киев", entry: "1/10 — Дырка в заборе", security: "2/10 — Бабка сторож, на вид лет 80", preservation: "9/10", author: "@Denshikkkkkk" },
+            { id: 18, name: "Бомбоубежище под заводом", city: "dnipro", icon: "🛡️", coords: "47.9122572, 33.4390116", desc: `Довольно нормальный подзаводный бомбарь. Объект я нашёл от крутёлков и от <a href="https://wikimapia.org" onclick="tg.openLink(this.href); return false;" style="color:var(--accent-secondary);">Wikimapia</a>.`, location: "Днепр/Кривой Рог, под заводом", entry: "4/10 — Находится открытый раколаз в бомбарь возле каких-то магазинов", security: "6/10 (оценка одного из тех кто туда лазил)", preservation: "?/10 — т.к я там не лазил точно сказать не могу, но есть информация что там лежат ГП-5, ГП-5М, причём как я понимаю многие из них не гнилые", author: "@kukla_kryvogo_roga" },
+            { id: 19, name: "Радио завод", city: "rivne", icon: "📻", coords: "50.608520, 26.289598", desc: "Радио завод", location: "Ровно", entry: "2/10 — Через окно", security: "6/10 — Полиция и сторожи", preservation: "8/10 — Много гп 4у", author: "@Latiao1488" },
+            { id: 20, name: "ББ ровненской школьной громади", city: "rivne", icon: "🛡️", coords: "50.610782, 26.228666", desc: "ББ ровненской школьной громади", location: "Ровно", entry: "4/10 — Мини дирка в метало профиле", security: "9/10 — Приезжает чоп, менты и вояки", preservation: "10/10 — Гп 4у, Гп 7, ру60ф и тд", author: "@Latiao1488" },
+            { id: 21, name: "Межшкольный учебно-производственный комбинат", city: "rivne", icon: "🏫", coords: "50.636027, 26.210211", desc: "Межшкольный учебно-производственный комбинат", location: "Ровно", entry: "?/10", security: "1/10", preservation: "1/10 — Гнилой гп 5", author: "@Latiao1488" },
+            { id: 22, name: "ББ (Кривой Рог)", city: "dnipro", icon: "🛡️", coords: "47.898889, 33.359694", desc: "ББ", location: "Кривой Рог", entry: "2/10 — Раколаз или ФВУ", security: "3/10 — Могут вызвать ментов", preservation: "8/10 — Все гнилое, герма ржавая, ФВУ снесли", author: "@Im_am_Shadow" },
+            { id: 23, name: "ББ (как новый)", city: "dnipro", icon: "🛡️", coords: "47.91531143119409, 33.30149804269983", desc: "ББ как новый но нету хабара", location: "Кривой Рог", entry: "?/10", security: "?/10", preservation: "2/10", author: "@Im_am_Shadow" }
+        ];
+
+        function renderLocations() {
+            const list = document.getElementById('locationsList');
+            if (!list) return;
+            list.innerHTML = '';
+            let filtered = filterLocations(locations);
+            if (filtered.length === 0) { 
+                list.innerHTML = '<div class="card" style="text-align:center;color:var(--text-muted);padding:24px;">Нет локаций</div>'; 
+                return; 
+            }
+
+            filtered.forEach(loc => {
+                const isExpanded = expandedId === loc.id;
+                const isFav = favorites.includes(loc.id);
+                let displayName = loc.name;
+                if (loc.unexplored) {
+                    displayName = `??? <span class="unexplored-badge" onclick="event.stopPropagation(); showUnexploredInfo()">ℹ️</span>`;
+                }
+
+                const authorClean = loc.author.startsWith('@') ? loc.author.substring(1) : loc.author;
+                const authorHtml = loc.author === "Нет юза" 
+                    ? '<span style="color:var(--text-muted); margin-left:4px;">Нет юза/аноним</span>' 
+                    : (loc.author.startsWith('@') 
+                        ? `<span class="author-link" onclick="event.stopPropagation(); navigateToProfile('${authorClean}')">${loc.author}${isVerified(authorClean) ? '<span class="verified-badge" onclick="event.stopPropagation(); showVerifiedInfo()">✓</span>' : ''}</span>` 
+                        : `<span style="color:var(--text-muted); margin-left:4px;">${loc.author}</span>`);
+
+                const wrapper = document.createElement('div');
+                wrapper.className = `loc-wrapper ${isExpanded ? 'expanded' : ''} ${isFav ? 'favorite' : ''}`;
+                wrapper.innerHTML = `
+                    <div class="loc-card" onclick="toggleLocation(${loc.id})">
+                        <div class="loc-icon">${loc.icon || '📍'}</div>
+                        <div class="loc-info"><h4>${displayName}</h4><div class="coords">${loc.coords}</div></div>
+                        <div class="loc-actions">
+                            <button class="favorite-btn ${isFav ? 'active' : ''}" onclick="event.stopPropagation(); toggleFavorite(${loc.id})">${isFav ? '★' : '☆'}</button>
+                            <div class="loc-arrow">▼</div>
+                        </div>
+                    </div>
+                    <div class="loc-details"><div class="loc-details-inner">
+                        <div class="detail-row"><div class="detail-label">📝 Описание</div><div class="detail-text">${loc.desc}</div></div>
+                        <div class="detail-row"><div class="detail-label">📍 Где</div><div class="detail-text">${loc.location}</div></div>
+                        <div class="detail-row"><div class="detail-label">📊 Характеристики</div>
+                            <div class="stats-row">
+                                <div class="stat-card ${getStatClass(parseStat(loc.entry).level)}"><div class="stat-value ${getStatClass(parseStat(loc.entry).level)}">${parseStat(loc.entry).level}</div><div class="stat-label-wrap">🚪 Залаз</div>${parseStat(loc.entry).text ? `<div class="stat-desc">${parseStat(loc.entry).text}</div>` : ''}</div>
+                                <div class="stat-card ${getStatClass(parseStat(loc.security).level)}"><div class="stat-value ${getStatClass(parseStat(loc.security).level)}">${parseStat(loc.security).level}</div><div class="stat-label-wrap">👮 Охрана</div>${parseStat(loc.security).text ? `<div class="stat-desc">${parseStat(loc.security).text}</div>` : ''}</div>
+                                <div class="stat-card ${getStatClass(parseStat(loc.preservation).level)}"><div class="stat-value ${getStatClass(parseStat(loc.preservation).level)}">${parseStat(loc.preservation).level}</div><div class="stat-label-wrap">🏚️ Сохран</div>${parseStat(loc.preservation).text ? `<div class="stat-desc">${parseStat(loc.preservation).text}</div>` : ''}</div>
+                            </div>
+                        </div>
+                        <div class="detail-row"><div class="detail-label">🎯 Координаты</div>
+                            <div class="coords-box" onclick="navigator.clipboard.writeText('${loc.coords}'); if(tg.showPopup) tg.showPopup({title:'Координаты', message:'Скопировано!', buttons:[{type:'ok'}]})">${loc.coords}</div>
+                            <button class="btn-small" onclick="event.stopPropagation(); tg.openLink('https://www.google.com/maps?q=${loc.coords.replace(/\s/g,'')}')">🗺️ Google Maps</button>
+                            <button class="btn-small" onclick="event.stopPropagation(); showOnMap(${loc.id})" style="margin-top:6px; background:linear-gradient(90deg, var(--accent-secondary), var(--accent-tertiary));">📍 На карте</button>
+                        </div>
+                        <div class="detail-row" style="text-align:right; margin-top:10px; border-top:1px solid var(--glass-border); padding-top:10px;">
+                            <span class="object-id">#${String(loc.id).padStart(3,'0')}</span>
+                            <span style="font-size:0.7rem; color:var(--text-muted); text-transform:uppercase; letter-spacing:1px; margin-left:6px;">Автор:</span>
+                            ${authorHtml}
+                        </div>
+                        <div class="detail-row" style="margin-top:10px;">
+                            <button class="btn-small" onclick="event.stopPropagation(); showPopup('📢 Сообщить об ошибке', 'Чтобы сообщить об ошибке напишите @ianqe')" style="background:var(--bg-card); border:1px solid var(--glass-border); color:var(--text-muted);">📢 Сообщить об ошибке</button>
+                        </div>
+                    </div></div>`;
+                list.appendChild(wrapper);
+            });
+        }
+
+        function showUnexploredInfo() {
+            showPopup('ℹ️ Не исследован', 'Этот объект пока что не исследован. Координаты взяты с карт и требуют проверки.<br><br>Мы постараемся как можно быстрее его исследовать.<br><br>Если у тебя есть информация — сообщи.');
+        }
+
+        function toggleLocation(id) { 
+            expandedId = expandedId === id ? null : id; 
+            renderLocations(); 
+        }
+        
+        function showOnMap(id) {
+            switchTab('map-tab');
+            if (!window.mapInitialized) initMap();
+            const loc = locations.find(l => l.id === id);
+            if (loc && window.map) {
+                const [lat, lng] = loc.coords.split(',').map(c => parseFloat(c.trim()));
+                window.map.flyTo([lat, lng], 16, { duration: 1.5 });
+                const marker = window.markers?.find(m => m.locationId === id);
+                if (marker) setTimeout(() => marker.openPopup(), 1600);
+            }
+        }
+
+        let map, markers = [];
+        window.mapInitialized = false;
+        function initMap() {
+            if (window.mapInitialized) return;
+            map = L.map('leafletMap', { center: [48.3794, 31.1656], zoom: 6, zoomControl: true, attributionControl: true });
+            L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', { attribution: '&copy; OpenStreetMap & CARTO', subdomains: 'abcd', maxZoom: 19 }).addTo(map);
+            locations.forEach(loc => {
+                const [lat, lng] = loc.coords.split(',').map(c => parseFloat(c.trim()));
+                const marker = L.marker([lat, lng]).addTo(map); 
+                marker.locationId = loc.id;
+                marker.bindPopup(`<div style="font-weight:700; margin-bottom:4px;">${loc.icon||'📍'} ${loc.name}</div><div style="font-family:'JetBrains Mono', monospace; font-size:0.75rem; color:var(--text-muted);">${loc.coords}</div><button onclick="showOnMap(${loc.id}); switchTab('coords');" style="margin-top:6px; padding:5px 10px; background:var(--accent-secondary); border:none; border-radius:6px; color:#000; font-weight:600; cursor:pointer; font-size:0.75rem;">Подробнее</button>`, { maxWidth: 250 });
+                markers.push(marker);
+            });
+            window.map = map;
+            window.markers = markers;
+            window.mapInitialized = true;
+        }
+
+        function loadAvatar(username) {
+            const cleanUser = username.replace('@', '');
+            const avatarImg = document.getElementById('profileAvatarImg');
+            const avatarFallback = document.getElementById('profileAvatarFallback');
+            
+            avatarImg.style.display = 'none';
+            avatarFallback.style.display = 'flex';
+            avatarFallback.textContent = cleanUser.charAt(0).toUpperCase();
+            
+            const avatarUrl = `https://t.me/i/userpic/320/${cleanUser}.jpg`;
+            
+            avatarImg.onload = function() {
+                avatarImg.style.display = 'block';
+                avatarFallback.style.display = 'none';
+            };
+            avatarImg.onerror = function() {
+                avatarImg.style.display = 'none';
+                avatarFallback.style.display = 'flex';
+            };
+            avatarImg.src = avatarUrl;
+        }
+
+        function loadUserPosts(username) {
+            const grid = document.getElementById('postsGrid');
+            grid.innerHTML = '';
+            
+            const userPosts = locations.filter(l => l.author.replace('@', '').toLowerCase() === username.toLowerCase());
+
+            if (userPosts.length === 0) {
+                grid.innerHTML = '<p style="color:var(--text-muted); text-align:center; grid-column: 1/-1; padding: 20px;">У пользователя пока нет объектов</p>';
+                return;
+            }
+
+            userPosts.forEach(post => {
+                const div = document.createElement('div');
+                div.className = 'post-item';
+                div.innerHTML = `
+                    <div class="post-icon">${post.icon}</div>
+                    <div class="post-name">${post.name}</div>
+                    <div class="post-city">${CITY_NAMES[post.city] || post.city}</div>
+                `;
+                div.onclick = () => {
+                    switchTab('coords');
+                    setTimeout(() => {
+                        expandedId = post.id;
+                        renderLocations();
+                        const wrapper = document.querySelector(`.loc-wrapper:has(.loc-card[onclick="toggleLocation(${post.id})"])`);
+                        if (wrapper) wrapper.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    }, 100);
+                };
+                grid.appendChild(div);
+            });
+        }
+
+        function loadProfile(username) {
+            const isMe = username.toLowerCase() === currentUser.toLowerCase();
+            const backBtn = document.getElementById('profileBackBtn');
+            if (backBtn) backBtn.style.display = isMe ? 'none' : 'flex';
+            
+            let points = calculateUserPoints(username);
+            let currency = calculateUserCurrency(username);
+            
+            const rank = getRankInfo(points);
+            const authoredCount = locations.filter(l => l.author.replace('@','').toLowerCase() === username.toLowerCase()).length;
+            const verifiedBadge = isVerified(username) ? '<span class="verified-badge" onclick="showVerifiedInfo()">✓</span>' : '';
+            
+            loadAvatar(username);
+            loadUserPosts(username);
+
+            const usernameEl = document.getElementById('profileUsername');
+            const pointsEl = document.getElementById('profilePoints');
+            const currencyEl = document.getElementById('profileCurrency');
+            const tgIdEl = document.getElementById('profileTgId');
+            const rankBadgeEl = document.getElementById('profileRankBadge');
+            const reportBtnEl = document.getElementById('profileReportBtn');
+            const reputationEl = document.getElementById('profileReputation');
+            
+            if (usernameEl) usernameEl.innerHTML = `@${username}${verifiedBadge}`;
+            if (pointsEl) pointsEl.textContent = `${points} баллов`;
+            if (currencyEl) currencyEl.textContent = `💰 ${currency}`;
+            if (tgIdEl) tgIdEl.textContent = isMe ? `Telegram ID: #${tgUser.id || '00000000'}` : `Опубликовано объектов: ${authoredCount}`;
+            if (rankBadgeEl) rankBadgeEl.innerHTML = `<span class="rank-badge" style="color:${rank.color}; border-color:${rank.color};">${rank.emoji} ${rank.name}</span>`;
+            
+            if (reputationEl) {
+                const cleanUser = username.replace('@', '').toLowerCase();
+                const reputation = USER_REPUTATIONS[cleanUser] || 50;
+                reputationEl.className = `reputation-badge ${getReputationClass(reputation)}`;
+                reputationEl.style.display = 'inline-flex';
+                reputationEl.innerHTML = `📊 Репутация: ${reputation}/100 (${getReputationText(reputation)})`;
+                
+                if (reputation < 45 && isMe) {
+                    showPopup('⚠️ УГРОЗА БАНА', 'Ваш рейтинг репутации ниже 45! Вам грозит бан. Свяжитесь с @ianqe для разъяснений.');
+                    document.getElementById('notificationBell').classList.add('has-notifications');
+                }
+            }
+            
+            if (reportBtnEl) {
+                if (isMe) {
+                    reportBtnEl.innerHTML = `<button class="report-btn problem" onclick="showPopup('📢 Сообщить о проблеме', 'Чтобы сообщить о проблеме напишите @ianqe')">📢 Сообщить о проблеме</button>`;
+                } else {
+                    reportBtnEl.innerHTML = `<button class="report-btn complain" onclick="showPopup('⚠️ Пожаловаться', 'Чтобы пожаловаться на @${username} напишите @ianqe')">⚠️ Пожаловаться на @${username}</button>`;
+                }
+            }
+        }
+
+        function renderTops() {
+            const authors = {};
+            const excluded = ['нет юза', 'карты', 'no user', 'maps'];
+            
+            locations.forEach(loc => {
+                const u = loc.author.replace('@', '').toLowerCase();
+                if (excluded.includes(u)) return;
+                if (!authors[u]) authors[u] = { points: 0, currency: USER_MONEY[u] || 0, reputation: USER_REPUTATIONS[u] || 50 };
+                authors[u].points += 5;
+            });
+            
+            const sortedByPoints = Object.entries(authors).sort((a, b) => b[1].points - a[1].points);
+            const sortedByMoney = Object.entries(authors).sort((a, b) => b[1].currency - a[1].currency);
+            const sortedByReputation = Object.entries(authors).sort((a, b) => b[1].reputation - a[1].reputation);
+            
+            const pointsBody = document.getElementById('rankingPointsBody');
+            if (pointsBody) {
+                pointsBody.innerHTML = sortedByPoints.slice(0, 10).map((item, i) => {
+                    const [user, data] = item;
+                    const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i+1}`;
+                    const verifiedBadge = isVerified(user) ? '<span class="verified-badge" onclick="showVerifiedInfo()">✓</span>' : '';
+                    return `<tr>
+                        <td>${medal}</td>
+                        <td><span class="author-link" onclick="navigateToProfile('${user}')">@${user}${verifiedBadge}</span></td>
+                        <td style="font-family:'JetBrains Mono', monospace; font-weight:700;">${data.points}</td>
+                    </tr>`;
+                }).join('');
+            }
+            
+            const moneyBody = document.getElementById('rankingMoneyBody');
+            if (moneyBody) {
+                moneyBody.innerHTML = sortedByMoney.slice(0, 10).map((item, i) => {
+                    const [user, data] = item;
+                    const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i+1}`;
+                    const verifiedBadge = isVerified(user) ? '<span class="verified-badge" onclick="showVerifiedInfo()">✓</span>' : '';
+                    return `<tr>
+                        <td>${medal}</td>
+                        <td><span class="author-link" onclick="navigateToProfile('${user}')">@${user}${verifiedBadge}</span></td>
+                        <td style="font-family:'JetBrains Mono', monospace; font-weight:700; color:var(--warning);">💰 ${data.currency}</td>
+                    </tr>`;
+                }).join('');
+            }
+
+            const reputationBody = document.getElementById('rankingReputationBody');
+            if (reputationBody) {
+                reputationBody.innerHTML = sortedByReputation.slice(0, 10).map((item, i) => {
+                    const [user, data] = item;
+                    const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i+1}`;
+                    const verifiedBadge = isVerified(user) ? '<span class="verified-badge" onclick="showVerifiedInfo()">✓</span>' : '';
+                    return `<tr>
+                        <td>${medal}</td>
+                        <td><span class="author-link" onclick="navigateToProfile('${user}')">@${user}${verifiedBadge}</span></td>
+                        <td style="font-family:'JetBrains Mono', monospace; font-weight:700; color:var(--success);">⭐ ${data.reputation}</td>
+                    </tr>`;
+                }).join('');
+            }
+        }
+
+        document.querySelectorAll('.city-card').forEach(card => {
+            card.addEventListener('click', () => {
+                document.querySelectorAll('.city-card').forEach(c => c.classList.remove('active'));
+                card.classList.add('active');
+                currentCity = card.dataset.city;
+                expandedId = null;
+                renderLocations();
+            });
+        });
+
+        function showNotifications() {
+            const cleanUser = currentUser.replace('@', '').toLowerCase();
+            const notifications = USER_NOTIFICATIONS[cleanUser] || [];
+            
+            if (notifications.length === 0) {
+                showPopup('🔔 Уведомления DOZ TEAM', 'Нету сообщений');
+            } else {
+                showPopup('🔔 Уведомления DOZ TEAM', notifications.join('<br><br>'));
+            }
+        }
+
+        function closeNotificationModal() {
+            document.getElementById('notificationModal').classList.remove('active');
+            // Mark as viewed in localStorage
+            localStorage.setItem(`notification_viewed_${currentUser}`, 'true');
+        }
+
+        function checkNewNotification() {
+            const cleanUser = currentUser.replace('@', '').toLowerCase();
+            const hasViewed = localStorage.getItem(`notification_viewed_${currentUser}`);
+            const hasNotifications = USER_NOTIFICATIONS[cleanUser] && USER_NOTIFICATIONS[cleanUser].length > 0;
+            
+            if (hasNotifications && !hasViewed) {
+                document.getElementById('notificationModal').classList.add('active');
+                document.getElementById('notificationBell').classList.add('has-notifications');
+            }
+        }
+
+        function handleFaqClick() {
+            faqClickCount++;
+            if (faqClickCount >= 5) {
+                openAdminPanel();
+                faqClickCount = 0;
+            }
+        }
+
+        function openAdminPanel() {
+            document.getElementById('adminPanel').classList.add('active');
+        }
+
+        function closeAdminPanel() {
+            document.getElementById('adminPanel').classList.remove('active');
+            document.getElementById('adminPassword').value = '';
+        }
+
+        function checkAdminPassword() {
+            const password = document.getElementById('adminPassword').value;
+            if (password === 'ianr4uksix62jedkx7') {
+                closeAdminPanel();
+                showAdminMenu();
+            } else {
+                showPopup('❌ Ошибка', 'Неверный пароль!');
+            }
+        }
+
+        function showAdminMenu() {
+            const username = prompt('Введите username для входа (например: denshikkkkkk):');
+            if (username) {
+                const cleanUsername = username.replace('@', '').toLowerCase();
+                currentUser = cleanUsername;
+                localStorage.setItem('doz_custom_username', cleanUsername);
+                showPopup('✅ Успешно', `Вы вошли как @${cleanUsername}`);
+                switchTab('profile');
+            }
+        }
+
+        window.addEventListener('load', () => {
+            switchTab('main');
+            renderLocations();
+            checkNewNotification();
+        });
+    </script>
+</body>
+</html>
